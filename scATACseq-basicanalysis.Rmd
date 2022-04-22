@@ -4,6 +4,7 @@ output:
   html_document:
     df_print: paged
 ---
+# Initialization
 
 ```{r}
 library(ArchR)
@@ -25,7 +26,7 @@ inputFiles
 addArchRGenome("mm10")
 ```
 
-Creating Arrow Files:
+## Creating Arrow Files:
 
 ```{r}
 ArrowFiles <- createArrowFiles(
@@ -59,6 +60,7 @@ doubScores <- addDoubletScores(
 ```
 result: UMAP Projection R^2 = 0.96202
 
+## Creating ArchR Project
 ```{r}
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
@@ -67,29 +69,27 @@ proj <- ArchRProject(
 )
 ```
 
-```{r}
-proj
-```
-
 
 ```{r}
 getAvailableMatrices(proj)
 ```
 
+# Quality Control 
+
 ## Manipulating ArchR Project
 
-Access to cellColData
+### Access to cellColData
 
 ```{r}
 head(proj$cellNames)
 ```
 
-sample names associated with each cell:
+### sample names associated with each cell:
 
 ```{r}
 head(proj$Sample)
 ```
-TSS Enrichment Scores for each cell:
+### TSS Enrichment Scores for each cell:
 
 ```{r}
 quantile(proj$TSSEnrichment)
@@ -212,37 +212,147 @@ Filtering 345 cells from ArchRProject!
 	
 ## Dimensionality Reduction and Clustering
 
-```{r}
-proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
-```
-```{r}
-proj
-```
+The reducedDims object called “IterativeLSI”. 
+Have used default parameters for iterations, varFeatures, and resolution parameters.
+-have used resolution = 0.2.
 
 ```{r}
-proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
-```
-
-## Visualizing in a 2D UMAP Embedding
-
-```{r}
-proj <- addUMAP(ArchRProj = proj, reducedDims = "IterativeLSI")
-```
-
-
-
-```{r}
-p1 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
+proj2 <- addIterativeLSI(
+    ArchRProj = proj1,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(0.2), 
+        sampleCells = 10000, 
+        n.start = 10
+    ), 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
 ```
 
+have not used Harmony for additional batch effect removal!
+
+# Clustering
+
 ```{r}
-p2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
+proj2 <- addClusters(
+    input = proj2,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 0.8
+)
+```
+Number of nodes: 5531
+Number of edges: 190699
+Number of communities: 11
+
+### Clusters:
+```{r}
+head(proj2$Clusters)
+```
+### number of cells present in each cluster:
+```{r}
+table(proj2$Clusters)
+```
+
+### Cluster Confusion Matrix
+
+enables to understand which samples reside in which clusters, we can create a cluster confusion matrix across each sample.
+
+
+```{r}
+cM <- confusionMatrix(paste0(proj2$Clusters), paste0(proj2$Sample))
+cM
+```
+Lets plot this confusion matrix: (but cannot do at the moment as there is onöy one sample, need atleast 2)
+
+```{r}
+library(pheatmap)
+#cM <- cM / Matrix::rowSums(cM)
+#p <- pheatmap::pheatmap(
+#    mat = as.matrix(cM), 
+#    color = paletteContinuous("whiteBlue"), 
+#    border_color = "black"
+#)
+#p
+```
+### Clustering using scran
+```{r}
+proj2 <- addClusters(
+    input = proj2,
+    reducedDims = "IterativeLSI",
+    method = "scran",
+    name = "ScranClusters",
+    k = 15
+)
+```
+
+
+
+# UMAPs
+
+```{r}
+proj2 <- addUMAP(
+    ArchRProj = proj2, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP", 
+    nNeighbors = 30, 
+    minDist = 0.5, 
+    metric = "cosine"
+)
+```
+
+Lets plot the UMAP results
+
+```{r}
+p1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
+```
+
+```{r}
+p2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
 ```
 
 ```{r}
 ggAlignPlots(p1, p2, type = "h")
 ```
-## Assigning Clusters with Gene Scores
+
+
+```{r}
+plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf", ArchRProj = proj2, addDOC = FALSE, width = 5, height = 5)
+```
+
+## t-Stocastic Neighbor Embedding (t-SNE)
+
+```{r}
+proj2 <- addTSNE(
+    ArchRProj = proj2, 
+    reducedDims = "IterativeLSI", 
+    name = "TSNE", 
+    perplexity = 30
+)
+```
+## Plotting tSNE
+
+```{r}
+p1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Sample", embedding = "TSNE")
+```
+```{r}
+p2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "TSNE")
+```
+```{r}
+ggAlignPlots(p1, p2, type = "h")
+```
+
+```{r}
+plotPDF(p1,p2, name = "Plot-TSNE-Sample-Clusters.pdf", ArchRProj = proj2, 
+        addDOC = FALSE, width = 5, height = 5)
+```
+
+
+# Gene Scores and Marker Genes with ArchR
 ```{r}
 proj <- addImputeWeights(proj)
 ```
