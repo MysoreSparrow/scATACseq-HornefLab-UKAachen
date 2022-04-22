@@ -353,6 +353,58 @@ plotPDF(p1,p2, name = "Plot-TSNE-Sample-Clusters.pdf", ArchRProj = proj2,
 
 
 # Gene Scores and Marker Genes with ArchR
+
+## Identifying Marker Genes
+
+```{r}
+markersGS <- getMarkerFeatures(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+```
+
+## Markers List
+
+```{r}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0")
+```
+
+```{r}
+head(markerList$C1, 15)
+```
+
+```{r}
+head(markerList$C2, 15)
+```
+
+```{r}
+head(markerList$C3, 15)
+```
+
+```{r}
+head(markerList$C4, 15)
+
+```
+
+
+```{r}
+head(markerList$C5, 15)
+```
+
+```{r}
+head(markerList$C6, 15)
+```
+
+```{r}
+head(markerList$C7, 15)
+```
+
+##  visualize all of the marker features simultaneously
+
+
 ```{r}
 proj <- addImputeWeights(proj)
 ```
