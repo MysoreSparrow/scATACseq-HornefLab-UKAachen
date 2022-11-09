@@ -1,0 +1,425 @@
+---
+title: "sc-ATACSeq Analysis"
+output:
+  html_document: 
+    toc: yes
+    toc_depth: 5
+    fig_caption: yes
+    number_sections: yes
+    keep_md: yes
+    fig_width: 9
+    fig_height: 9
+    df_print: default
+---
+# Initialization
+
+```{r}
+suppressPackageStartupMessages(library(ArchR))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(here))
+set.seed(1234)
+```
+
+```{r}
+# addArchRThreads(threads = 6) 
+```
+```{r Data Input Path}
+day5_sample <- "D:/ATACSeq/Data/Sample1/2_Processed_data/AJ_v12/fragments.tsv.gz"
+
+day10_sample <- "D:/ATACSeq/Data/Sample2/220928_Juergens_Hornef_microbiology_scATACseq/compressed_tars/_2_Processed_data/2_Processed_data/AJ_V12_d10_L129_UI/fragments.tsv.gz"
+
+```
+
+```{r Input Data}
+inputFiles <- c('scATAC' = c(day5_sample, day10_sample))
+```
+```{r}
+addArchRGenome("mm10")
+```
+
+## Creating Arrow Files:
+
+```{r}
+ArrowFiles <- createArrowFiles(
+  inputFiles = inputFiles,
+  sampleNames = names(inputFiles),
+  filterTSS = 4, #Dont set this too high because you can always increase later
+  filterFrags = 1000, 
+  addTileMat = TRUE,
+  addGeneScoreMat = TRUE
+)
+```
+
+Have used default values for filterTSS = 4,filterFrags = 1000, as per manual (relevant for human data). Needs to be changed!!
+
+Creation of Arrow files will create a folder in the current working directory called “QualityControl” which will contain 2 plots associated with each of your samples. The first plot shows the log10(unique nuclear fragments) vs TSS enrichment score and indicates the thresholds used with dotted lines. The second shows the fragment size distribution.
+
+
+## Inferring scATAC-seq Doublets with ArchR
+
+A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. We remove these computationally!
+```{r}
+doubScores <- addDoubletScores(
+  input = ArrowFiles,
+  k = 30, #Refers to how many cells near a "pseudo-doublet" to count.
+  knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
+  LSIMethod = 1,
+  force = TRUE
+)
+
+```
+
+
+## Creating ArchR Project
+```{r}
+proj <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = "D:/ATACSeq/bothsamples/",
+  copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
+)
+```
+```{r}
+getAvailableMatrices(proj)
+```
+
+# Quality Control 
+
+## Manipulating ArchR Project
+
+### Access to cellColData
+
+```{r}
+head(proj$cellNames)
+```
+
+### sample names associated with each cell:
+
+```{r}
+head(proj$Sample)
+```
+### TSS Enrichment Scores for each cell:
+
+```{r}
+quantile(proj$TSSEnrichment)
+```
+### Plotting QC metrics - log10(Unique Fragments) vs TSS enrichment score
+
+plot the number of unique nuclear fragments (log10) by the TSS enrichment score. This type of plot is key for identifying high quality cells. The cutoffs that we previously specified when creating the Arrow files (via filterTSS and filterFrags) have already removed low quality cells.
+
+```{r}
+df <- getCellColData(proj, select = c("log10(nFrags)", "TSSEnrichment"))
+head(df)
+```
+
+```{r}
+p <- ggPoint(
+    x = df[,1], 
+    y = df[,2], 
+    colorDensity = TRUE,
+    continuousSet = "sambaNight",
+    xlabel = "Log10 Unique Fragments",
+    ylabel = "TSS Enrichment",
+    xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
+    ylim = c(0, quantile(df[,2], probs = 0.99))
+) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed")
+p
+```
+
+## Plotting Sample Statistics from an ArchRProject
+
+### Make a ridge plot for each sample for the TSS enrichment scores.
+
+```{r}
+p1 <- plotGroups(
+    ArchRProj = proj, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "TSSEnrichment",
+    plotAs = "ridges"
+   )
+p1
+```
+
+### Make a violin plot for each sample for the TSS enrichment scores.
+
+```{r}
+p2 <- plotGroups(
+    ArchRProj = proj, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "TSSEnrichment",
+    plotAs = "violin",
+    alpha = 0.4,
+    addBoxPlot = TRUE
+   )
+p2
+```
+
+### Make a ridge plot for each sample for the log10 (unique nuclear fragments).
+
+```{r}
+p3 <- plotGroups(
+    ArchRProj = proj, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "log10(nFrags)",
+    plotAs = "ridges"
+   )
+p3
+```
+### violin plot for each sample for the log10(unique nuclear fragments).
+
+```{r}
+p4 <- plotGroups(
+    ArchRProj = proj, 
+    groupBy = "Sample", 
+    colorBy = "cellColData", 
+    name = "log10(nFrags)",
+    plotAs = "violin",
+    alpha = 0.4,
+    addBoxPlot = TRUE
+   )
+p4
+```
+
+## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
+
+### Fragment size distributions
+
+```{r}
+p5 <- plotFragmentSizes(ArchRProj = proj)
+p5
+```
+
+### TSS enrichment profiles
+
+```{r}
+p6 <- plotTSSEnrichment(ArchRProj = proj)
+p6
+```
+
+Saving both these plots
+```{r}
+plotPDF(p5,p6, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = proj, 
+        addDOC = FALSE, width = 5, height = 5)
+```
+```{r}
+saveArchRProject(ArchRProj = proj, outputDirectory = "D:/ATACSeq/", load = FALSE)
+
+```
+## Filtering Doublets from an ArchRProject:
+
+The higher the filterRatio, the greater the number of cells potentially removed as doublets.
+
+```{r}
+proj1 <- filterDoublets(ArchRProj = proj)
+```
+
+## Dimensionality Reduction and Clustering
+
+The reducedDims object called “IterativeLSI”. 
+Have used default parameters for iterations, varFeatures, and resolution parameters.
+-have used resolution = 0.2.
+
+```{r}
+proj2 <- addIterativeLSI(
+    ArchRProj = proj1,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(0.2), 
+        sampleCells = 10000, 
+        n.start = 10
+    ), 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+have not used Harmony for additional batch effect removal!
+
+# Clustering
+
+```{r}
+proj2 <- addClusters(
+    input = proj2,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 0.8
+)
+```
+
+
+### Clusters:
+```{r}
+head(proj2$Clusters)
+```
+### number of cells present in each cluster:
+```{r}
+table(proj2$Clusters)
+```
+
+### Cluster Confusion Matrix
+
+enables to understand which samples reside in which clusters, we can create a cluster confusion matrix across each sample.
+
+
+```{r}
+cM <- confusionMatrix(paste0(proj2$Clusters), paste0(proj2$Sample))
+cM
+```
+Lets plot this confusion matrix: (but cannot do at the moment as there is only one sample, need atleast 2)
+
+```{r}
+library(pheatmap)
+# cM <- cM / Matrix::rowSums(cM)
+# p <- pheatmap::pheatmap(
+#    mat = as.matrix(cM),
+#    color = paletteContinuous("whiteBlue"),
+#    border_color = "black"
+# )
+# p
+```
+### Clustering using scran
+```{r}
+suppressPackageStartupMessages(library("scran"))
+proj2 <- addClusters(
+    input = proj2,
+    reducedDims = "IterativeLSI",
+    method = "scran",
+    name = "ScranClusters",
+    k = 15
+)
+```
+
+
+
+# UMAPs
+
+```{r}
+proj2 <- addUMAP(
+    ArchRProj = proj2, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP", 
+    nNeighbors = 30, 
+    minDist = 0.5, 
+    metric = "cosine"
+)
+```
+
+Lets plot the UMAP results
+
+```{r}
+p1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
+```
+
+```{r}
+p2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
+```
+
+```{r}
+ggAlignPlots(p1, p2, type = "h")
+```
+
+
+```{r}
+(plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf", ArchRProj = proj2, addDOC = FALSE, width = 5, height = 5))
+```
+
+## t-Stocastic Neighbor Embedding (t-SNE)
+
+```{r}
+proj2 <- addTSNE(
+    ArchRProj = proj2, 
+    reducedDims = "IterativeLSI", 
+    name = "TSNE", 
+    perplexity = 30
+)
+```
+## Plotting tSNE
+
+```{r}
+p1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Sample", embedding = "TSNE")
+```
+```{r}
+p2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "TSNE")
+```
+```{r fig.height=10, fig.width=10}
+ggAlignPlots(p1, p2, type = "h")
+```
+
+```{r}
+plotPDF(p1,p2, name = "Plot-TSNE-Sample-Clusters.pdf", ArchRProj = proj2, 
+        addDOC = FALSE, width = 5, height = 5)
+```
+
+
+# Gene Scores and Marker Genes with ArchR
+
+## Identifying Marker Genes
+
+```{r}
+markersGS <- getMarkerFeatures(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+```
+
+## Markers List
+
+```{r}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0")
+```
+
+```{r}
+head(markerList$C1, 15)
+```
+
+```{r}
+head(markerList$C2, 15)
+```
+
+```{r}
+head(markerList$C3, 15)
+```
+
+```{r}
+head(markerList$C4, 15)
+```
+
+
+```{r}
+head(markerList$C5, 15)
+```
+
+```{r}
+head(markerList$C6, 15)
+```
+
+```{r}
+head(markerList$C7, 15)
+```
+
+##  visualize all of the marker features simultaneously
+
+
+```{r}
+markerGenes  <- c("Plag2g2a", "Defa-rs1", "Mmp7", 
+                  "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
+heatmapGS <- markerHeatmap(
+  seMarker = markersGS, 
+  cutOff = "FDR <= 0.01 & Log2FC >= 1.0", 
+  labelMarkers = markerGenes,
+  transpose = TRUE
+)
+```
+
+
+```{r}
+ComplexHeatmap::draw(heatmapGS, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+```
