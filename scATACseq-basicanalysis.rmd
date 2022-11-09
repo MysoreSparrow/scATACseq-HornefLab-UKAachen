@@ -14,9 +14,10 @@ output:
 # Initialization
 
 ```{r}
-suppressPackageStartupMessages(library(ArchR))
-suppressPackageStartupMessages(library(tidyverse))
-suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library("ArchR"))
+suppressPackageStartupMessages(library("tidyverse"))
+suppressPackageStartupMessages(library("here"))
+suppressPackageStartupMessages(library("scran"))
 set.seed(1234)
 ```
 
@@ -28,8 +29,10 @@ here::i_am("scATACseq-basicanalysis.rmd")
 day5 <- "D:/ATACSeq/Data/Sample1/2_Processed_data_S1/AJ_v12/fragments.tsv.gz"
 
 day10 <- "D:/ATACSeq/Data/Sample2/220928_Juergens_Hornef_microbiology_scATACseq/compressed_tars/_2_Processed_data_S2/2_Processed_data/AJ_V12_d10_L129_UI/fragments.tsv.gz"
-
+```
+```{r}
 inputFiles <- c('scATAC' = c(day5, day10))
+inputFiles
 ```
 ```{r}
 addArchRGenome("mm10")
@@ -128,21 +131,20 @@ head(df)
 ### Make a ridge plot for each sample for the TSS enrichment scores.
 
 ```{r}
-p1 <- plotGroups(
-    ArchRProj = proj, 
+(plotGroups(
+    ArchRProj = ATACSeq_project, 
     groupBy = "Sample", 
     colorBy = "cellColData", 
     name = "TSSEnrichment",
     plotAs = "ridges"
-   )
-p1
+   ))
 ```
 
 ### Make a violin plot for each sample for the TSS enrichment scores.
 
 ```{r}
 p2 <- plotGroups(
-    ArchRProj = proj, 
+    ArchRProj = ATACSeq_project, 
     groupBy = "Sample", 
     colorBy = "cellColData", 
     name = "TSSEnrichment",
@@ -157,7 +159,7 @@ p2
 
 ```{r}
 p3 <- plotGroups(
-    ArchRProj = proj, 
+    ArchRProj = ATACSeq_project, 
     groupBy = "Sample", 
     colorBy = "cellColData", 
     name = "log10(nFrags)",
@@ -169,7 +171,7 @@ p3
 
 ```{r}
 p4 <- plotGroups(
-    ArchRProj = proj, 
+    ArchRProj = ATACSeq_project, 
     groupBy = "Sample", 
     colorBy = "cellColData", 
     name = "log10(nFrags)",
@@ -185,24 +187,24 @@ p4
 ### Fragment size distributions
 
 ```{r}
-p5 <- plotFragmentSizes(ArchRProj = proj)
+p5 <- plotFragmentSizes(ArchRProj = ATACSeq_project)
 p5
 ```
 
 ### TSS enrichment profiles
 
 ```{r}
-p6 <- plotTSSEnrichment(ArchRProj = proj)
+p6 <- plotTSSEnrichment(ArchRProj = ATACSeq_project)
 p6
 ```
 
 Saving both these plots
 ```{r}
-plotPDF(p5,p6, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = proj, 
+plotPDF(p5,p6, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = ATACSeq_project, 
         addDOC = FALSE, width = 5, height = 5)
 ```
 ```{r}
-saveArchRProject(ArchRProj = proj, outputDirectory = "D:/ATACSeq/", load = FALSE)
+saveArchRProject(ArchRProj = ATACSeq_project, outputDirectory = "D:/ATACSeq/", load = FALSE)
 
 ```
 ## Filtering Doublets from an ArchRProject:
@@ -210,7 +212,7 @@ saveArchRProject(ArchRProj = proj, outputDirectory = "D:/ATACSeq/", load = FALSE
 The higher the filterRatio, the greater the number of cells potentially removed as doublets.
 
 ```{r}
-proj1 <- filterDoublets(ArchRProj = proj)
+ATACSeq_project <- filterDoublets(ArchRProj = ATACSeq_project)
 ```
 
 ## Dimensionality Reduction and Clustering
@@ -220,13 +222,13 @@ Have used default parameters for iterations, varFeatures, and resolution paramet
 -have used resolution = 0.2.
 
 ```{r}
-proj2 <- addIterativeLSI(
-    ArchRProj = proj1,
+ATACSeq_project <- addIterativeLSI(
+    ArchRProj = ATACSeq_project,
     useMatrix = "TileMatrix", 
     name = "IterativeLSI", 
     iterations = 2, 
     clusterParams = list( #See Seurat::FindClusters
-        resolution = c(0.2), 
+        resolution = 0.2, 
         sampleCells = 10000, 
         n.start = 10
     ), 
@@ -240,8 +242,8 @@ have not used Harmony for additional batch effect removal!
 # Clustering
 
 ```{r}
-proj2 <- addClusters(
-    input = proj2,
+ATACSeq_project <- addClusters(
+    input = ATACSeq_project,
     reducedDims = "IterativeLSI",
     method = "Seurat",
     name = "Clusters",
@@ -250,13 +252,11 @@ proj2 <- addClusters(
 ```
 
 
-### Clusters:
-```{r}
-head(proj2$Clusters)
-```
+## Clusters:
+
 ### number of cells present in each cluster:
 ```{r}
-table(proj2$Clusters)
+table(ATACSeq_project$Clusters)
 ```
 
 ### Cluster Confusion Matrix
@@ -265,26 +265,27 @@ enables to understand which samples reside in which clusters, we can create a cl
 
 
 ```{r}
-cM <- confusionMatrix(paste0(proj2$Clusters), paste0(proj2$Sample))
-cM
+confusion_Matrix <- confusionMatrix(paste0(ATACSeq_project$Clusters),
+                      paste0(ATACSeq_project$Sample)
+                      )
+confusion_Matrix
 ```
 Lets plot this confusion matrix: (but cannot do at the moment as there is only one sample, need atleast 2)
 
 ```{r}
 library(pheatmap)
-# cM <- cM / Matrix::rowSums(cM)
-# p <- pheatmap::pheatmap(
-#    mat = as.matrix(cM),
-#    color = paletteContinuous("whiteBlue"),
-#    border_color = "black"
-# )
+confusion_Matrix <- confusion_Matrix / Matrix::rowSums(confusion_Matrix)
+(pheatmap::pheatmap(
+   mat = as.matrix(confusion_Matrix),
+   color = paletteContinuous("whiteBlue"),
+   border_color = "black"))
 # p
 ```
 ### Clustering using scran
 ```{r}
 suppressPackageStartupMessages(library("scran"))
-proj2 <- addClusters(
-    input = proj2,
+ATACSeq_project <- addClusters(
+    input = ATACSeq_project,
     reducedDims = "IterativeLSI",
     method = "scran",
     name = "ScranClusters",
@@ -297,8 +298,8 @@ proj2 <- addClusters(
 # UMAPs
 
 ```{r}
-proj2 <- addUMAP(
-    ArchRProj = proj2, 
+ATACSeq_project <- addUMAP(
+    ArchRProj = ATACSeq_project, 
     reducedDims = "IterativeLSI", 
     name = "UMAP", 
     nNeighbors = 30, 
@@ -310,11 +311,17 @@ proj2 <- addUMAP(
 Lets plot the UMAP results
 
 ```{r}
-p1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Sample", embedding = "UMAP")
+(plotEmbedding(ArchRProj = ATACSeq_project,
+                    colorBy = "cellColData", 
+                    name = "Sample", 
+                    embedding = "UMAP"))
 ```
 
 ```{r}
-p2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP")
+(plotEmbedding(ArchRProj = ATACSeq_project, 
+              colorBy = "cellColData",
+              name = "Clusters", 
+              embedding = "UMAP"))
 ```
 
 ```{r}
@@ -323,7 +330,12 @@ ggAlignPlots(p1, p2, type = "h")
 
 
 ```{r}
-(plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf", ArchRProj = proj2, addDOC = FALSE, width = 5, height = 5))
+(plotPDF(p1,p2, 
+         name = "Plot-UMAP-Sample-Clusters.pdf",
+         ArchRProj = ATACSeq_project, 
+         addDOC = TRUE, 
+         width = 9, 
+         height = 9))
 ```
 
 ## t-Stocastic Neighbor Embedding (t-SNE)
