@@ -22,16 +22,14 @@ set.seed(1234)
 
 ```{r}
 # addArchRThreads(threads = 6) 
+here::i_am("scATACseq-basicanalysis.rmd")
 ```
-```{r Data Input Path}
-day5_sample <- "D:/ATACSeq/Data/Sample1/2_Processed_data/AJ_v12/fragments.tsv.gz"
+```{r Data Input}
+day5 <- "D:/ATACSeq/Data/Sample1/2_Processed_data_S1/AJ_v12/fragments.tsv.gz"
 
-day10_sample <- "D:/ATACSeq/Data/Sample2/220928_Juergens_Hornef_microbiology_scATACseq/compressed_tars/_2_Processed_data/2_Processed_data/AJ_V12_d10_L129_UI/fragments.tsv.gz"
+day10 <- "D:/ATACSeq/Data/Sample2/220928_Juergens_Hornef_microbiology_scATACseq/compressed_tars/_2_Processed_data_S2/2_Processed_data/AJ_V12_d10_L129_UI/fragments.tsv.gz"
 
-```
-
-```{r Input Data}
-inputFiles <- c('scATAC' = c(day5_sample, day10_sample))
+inputFiles <- c('scATAC' = c(day5, day10))
 ```
 ```{r}
 addArchRGenome("mm10")
@@ -39,32 +37,36 @@ addArchRGenome("mm10")
 
 ## Creating Arrow Files:
 
+Each Arrow file stores all of the data associated with an individual sample (i.e. metadata, accessible fragments, and data matrices).
+
 ```{r}
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
-  filterTSS = 4, #Dont set this too high because you can always increase later
-  filterFrags = 1000, 
+  minTSS = 4, #Dont set this too high because you can always increase later
+  minFrags = 1000, 
   addTileMat = TRUE,
-  addGeneScoreMat = TRUE
+  addGeneScoreMat = TRUE,
+  subThreading = TRUE,
+  verbose = TRUE,
+  cleanTmp = TRUE,
+  force = TRUE,
+  logFile = createLogFile("createArrows_Nov")
 )
 ```
-
-Have used default values for filterTSS = 4,filterFrags = 1000, as per manual (relevant for human data). Needs to be changed!!
 
 Creation of Arrow files will create a folder in the current working directory called “QualityControl” which will contain 2 plots associated with each of your samples. The first plot shows the log10(unique nuclear fragments) vs TSS enrichment score and indicates the thresholds used with dotted lines. The second shows the fragment size distribution.
 
 
-## Inferring scATAC-seq Doublets with ArchR
+# Inferring scATAC-seq Doublets with ArchR
 
-A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. We remove these computationally!
+A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
 ```{r}
-doubScores <- addDoubletScores(
-  input = ArrowFiles,
-  k = 30, #Refers to how many cells near a "pseudo-doublet" to count.
-  knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
-  LSIMethod = 1,
-  force = TRUE
+doubScores <- addDoubletScores(input = ArrowFiles,
+                                k = 30, #Refers to how many cells near a "pseudo-doublet" to count.
+                                knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
+                                LSIMethod = 1,
+                                force = TRUE
 )
 
 ```
@@ -72,47 +74,43 @@ doubScores <- addDoubletScores(
 
 ## Creating ArchR Project
 ```{r}
-proj <- ArchRProject(
+ATACSeq_project <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = "D:/ATACSeq/bothsamples/",
   copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
 )
-```
-```{r}
-getAvailableMatrices(proj)
+
+getAvailableMatrices(ATACSeq_project)
 ```
 
 # Quality Control 
 
-## Manipulating ArchR Project
+## Information from ArchR Project
 
-### Access to cellColData
-
-```{r}
-head(proj$cellNames)
-```
-
-### sample names associated with each cell:
+### Doublet score
 
 ```{r}
-head(proj$Sample)
+Doublet_score_df <- as.data.frame(ATACSeq_project$DoubletScore)
+quantile(ATACSeq_project$DoubletScore)
 ```
+
+
 ### TSS Enrichment Scores for each cell:
 
 ```{r}
-quantile(proj$TSSEnrichment)
+quantile(ATACSeq_project$TSSEnrichment)
 ```
 ### Plotting QC metrics - log10(Unique Fragments) vs TSS enrichment score
 
 plot the number of unique nuclear fragments (log10) by the TSS enrichment score. This type of plot is key for identifying high quality cells. The cutoffs that we previously specified when creating the Arrow files (via filterTSS and filterFrags) have already removed low quality cells.
 
 ```{r}
-df <- getCellColData(proj, select = c("log10(nFrags)", "TSSEnrichment"))
+df <- getCellColData(ATACSeq_project, select = c("log10(nFrags)", "TSSEnrichment"))
 head(df)
 ```
 
 ```{r}
-p <- ggPoint(
+(ggPoint(
     x = df[,1], 
     y = df[,2], 
     colorDensity = TRUE,
@@ -121,8 +119,8 @@ p <- ggPoint(
     ylabel = "TSS Enrichment",
     xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
     ylim = c(0, quantile(df[,2], probs = 0.99))
-) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed")
-p
+) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed"))
+
 ```
 
 ## Plotting Sample Statistics from an ArchRProject
