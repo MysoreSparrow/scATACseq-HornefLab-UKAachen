@@ -53,7 +53,7 @@ ArrowFiles <- createArrowFiles(
   subThreading = TRUE,
   verbose = TRUE,
   cleanTmp = TRUE,
-  force = TRUE,
+  #force = TRUE,
   logFile = createLogFile("createArrows_Nov")
 )
 ```
@@ -61,7 +61,7 @@ ArrowFiles <- createArrowFiles(
 Creation of Arrow files will create a folder in the current working directory called “QualityControl” which will contain 2 plots associated with each of your samples. The first plot shows the log10(unique nuclear fragments) vs TSS enrichment score and indicates the thresholds used with dotted lines. The second shows the fragment size distribution.
 
 
-# Inferring scATAC-seq Doublets with ArchR
+## Inferring scATAC-seq Doublets with ArchR
 
 A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
 ```{r}
@@ -73,8 +73,6 @@ doubScores <- addDoubletScores(input = ArrowFiles,
 )
 
 ```
-
-
 ## Creating ArchR Project
 ```{r}
 ATACSeq_project <- ArchRProject(
@@ -85,21 +83,17 @@ ATACSeq_project <- ArchRProject(
 
 getAvailableMatrices(ATACSeq_project)
 ```
+We filter putative doublets based on the previously determined doublet scores using the filterDoublets() function. This doesn’t physically remove data from the Arrow files but rather tells the ArchRProject to ignore these cells for downstream analysis. The higher the filterRatio, the greater the number of cells potentially removed as doublets.
 
-# Quality Control 
-
-## Information from ArchR Project
-
+```{r}
+ATACSeq_project <- filterDoublets(ArchRProj = ATACSeq_project)
+```
 ### Doublet score
-
 ```{r}
 Doublet_score_df <- as.data.frame(ATACSeq_project$DoubletScore)
 quantile(ATACSeq_project$DoubletScore)
 ```
-
-
 ### TSS Enrichment Scores for each cell:
-
 ```{r}
 quantile(ATACSeq_project$TSSEnrichment)
 ```
@@ -127,23 +121,19 @@ head(df)
 ```
 
 ## Plotting Sample Statistics from an ArchRProject
-
-### Make a ridge plot for each sample for the TSS enrichment scores.
-
+### Plots (per sample) for TSS enrichment scores.
+#### Ridge plot  - TSS enrichment scores.
 ```{r}
-(plotGroups(
-    ArchRProj = ATACSeq_project, 
-    groupBy = "Sample", 
-    colorBy = "cellColData", 
-    name = "TSSEnrichment",
-    plotAs = "ridges"
+(Group_plot_TSS_ridge = plotGroups(ArchRProj = ATACSeq_project, 
+                              groupBy = "Sample", 
+                              colorBy = "cellColData", 
+                              name = "TSSEnrichment",
+                              plotAs = "ridges"
    ))
 ```
-
-### Make a violin plot for each sample for the TSS enrichment scores.
-
+### Violin plot - TSS enrichment scores.
 ```{r}
-p2 <- plotGroups(
+(Group_plot_TSS_violin = plotGroups(
     ArchRProj = ATACSeq_project, 
     groupBy = "Sample", 
     colorBy = "cellColData", 
@@ -151,69 +141,45 @@ p2 <- plotGroups(
     plotAs = "violin",
     alpha = 0.4,
     addBoxPlot = TRUE
-   )
-p2
+   ))
 ```
-
-### Make a ridge plot for each sample for the log10 (unique nuclear fragments).
-
+### Plots (per sample) for log10 (unique nuclear fragments)
+#### Ridge plot  - log10 (unique nuclear fragments)
 ```{r}
-p3 <- plotGroups(
-    ArchRProj = ATACSeq_project, 
-    groupBy = "Sample", 
-    colorBy = "cellColData", 
-    name = "log10(nFrags)",
-    plotAs = "ridges"
-   )
-p3
+(Group_plot_nFrags_ridge = plotGroups(ArchRProj = ATACSeq_project, 
+                                  groupBy = "Sample", 
+                                  colorBy = "cellColData", 
+                                  name = "log10(nFrags)",
+                                  plotAs = "ridges"
+))
 ```
 ### violin plot for each sample for the log10(unique nuclear fragments).
 
 ```{r}
-p4 <- plotGroups(
-    ArchRProj = ATACSeq_project, 
-    groupBy = "Sample", 
-    colorBy = "cellColData", 
-    name = "log10(nFrags)",
-    plotAs = "violin",
-    alpha = 0.4,
-    addBoxPlot = TRUE
-   )
-p4
+(Group_plot_nFrags_violin = plotGroups(ArchRProj = ATACSeq_project, 
+                                      groupBy = "Sample", 
+                                      colorBy = "cellColData", 
+                                      name = "log10(nFrags)",
+                                      plotAs = "violin",
+                                      alpha = 0.4,
+                                      addBoxPlot = TRUE
+))
 ```
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
-
-### Fragment size distributions
-
 ```{r}
-p5 <- plotFragmentSizes(ArchRProj = ATACSeq_project)
-p5
+(FragSizePlot = plotFragmentSizes(ArchRProj = ATACSeq_project))
+(TSSEnrichmentPlot = plotTSSEnrichment(ArchRProj = ATACSeq_project))
 ```
-
-### TSS enrichment profiles
-
+Saving both these plots and ArchR Project
 ```{r}
-p6 <- plotTSSEnrichment(ArchRProj = ATACSeq_project)
-p6
-```
+plotPDF(FragSizePlot, TSSEnrichmentPlot,name = "QC-Sample-FragSizes-TSSProfile.pdf",
+        ArchRProj = ATACSeq_project, addDOC = FALSE, width = 8, height = 8)
 
-Saving both these plots
-```{r}
-plotPDF(p5,p6, name = "QC-Sample-FragSizes-TSSProfile.pdf", ArchRProj = ATACSeq_project, 
-        addDOC = FALSE, width = 5, height = 5)
-```
-```{r}
 saveArchRProject(ArchRProj = ATACSeq_project, outputDirectory = "D:/ATACSeq/", load = FALSE)
 
 ```
-## Filtering Doublets from an ArchRProject:
 
-The higher the filterRatio, the greater the number of cells potentially removed as doublets.
-
-```{r}
-ATACSeq_project <- filterDoublets(ArchRProj = ATACSeq_project)
-```
 
 ## Dimensionality Reduction and Clustering
 
