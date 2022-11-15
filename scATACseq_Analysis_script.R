@@ -8,6 +8,7 @@ suppressPackageStartupMessages(library("here"))
 suppressPackageStartupMessages(library("scran"))
 suppressPackageStartupMessages(library("pheatmap"))
 suppressPackageStartupMessages(library("ComplexHeatmap"))
+suppressPackageStartupMessages(library("patchwork"))
 set.seed(1234)
 
 # addArchRThreads(threads = 6)
@@ -37,34 +38,31 @@ ArrowFiles <- createArrowFiles(inputFiles = inputFiles,
                                 logFile = createLogFile("createArrows_Nov")
 )
 
-## Inferring scATAC-seq Doublets with ArchR : A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
-doubScores <- addDoubletScores(input = ArrowFiles,
-                                k = 30, #Refers to how many cells near a "pseudo-doublet" to count
-                                knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
-                                LSIMethod = 1,
-                                force = TRUE
-)
-
 ## Creating ArchR Project
 ATACSeq_project <- ArchRProject(
   ArrowFiles = ArrowFiles,
   outputDirectory = "D:/ATACSeq/",
   copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
 )
-
 getAvailableMatrices(ATACSeq_project)
+##############################################################################################
+# SECTION 2: Quality Control
 
-# SECTION2 : Doublet Removal
-#
+## SECTION2.1 : Doublet Removal
+##Inferring scATAC-seq Doublets with ArchR : A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
+doubScores <- addDoubletScores(input = ArrowFiles,
+                               k = 30, #Refers to how many cells near a "pseudo-doublet" to count
+                               knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
+                               LSIMethod = 1,
+                               force = TRUE
+)
 # We filter putative doublets based on the previously determined doublet scores using the filterDoublets() function. This doesn’t physically remove data from the Arrow files but rather tells the ArchRProject to ignore these cells for downstream analysis. The higher the filterRatio, the greater the number of cells potentially removed as doublets.
 ATACSeq_project <- filterDoublets(ArchRProj = ATACSeq_project)
 
 ### Doublet score
 Doublet_score_df <- as.data.frame(ATACSeq_project$DoubletScore)
 quantile(ATACSeq_project$DoubletScore)
-
 ### TSS Enrichment Scores for each cell:
-
 quantile(ATACSeq_project$TSSEnrichment)
 
 ### Plotting QC metrics - log10(Unique Fragments) vs TSS enrichment score
@@ -104,22 +102,24 @@ head(df)
    ))
 
 ### Plots (per sample) for log10 (unique nuclear fragments)
-#### Ridge plot  - log10 (unique nuclear fragments)
-(Group_plot_nFrags_ridge <- plotGroups(ArchRProj = ATACSeq_project,
+#### log10 (unique nuclear fragments)
+(Group_plot_nFrags_violin <- plotGroups(ArchRProj = ATACSeq_project,
                                        groupBy = "Sample",
                                        colorBy = "cellColData",
                                        name = "log10(nFrags)",
-                                       plotAs = "ridges"
-))
-### violin plot for each sample for the log10(unique nuclear fragments).
+                                       plotAs = "violin"
+)) + ggtitle("nFrags")
+### violin plot for each sample for TSSEnrichment.
 (Group_plot_nFrags_violin <- plotGroups(ArchRProj = ATACSeq_project,
                                         groupBy = "Sample",
                                         colorBy = "cellColData",
-                                        name = "log10(nFrags)",
+                                        name = "TSSEnrichment",
                                         plotAs = "violin",
                                         alpha = 0.4,
                                         addBoxPlot = TRUE
-))
+)) + ggtitle("TSSEnrichment")
+
+Group_plot_nFrags_violin + Group_plot_nFrags_violin + patchwork::plot_layout(nrow = 1)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
 (FragSizePlot <- plotFragmentSizes(ArchRProj = ATACSeq_project))
