@@ -27,14 +27,15 @@ addArchRGenome("mm10")
 ## Creating Arrow Files: #Each Arrow file stores all of the data associated with an individual sample (i.e. metadata, accessible fragments, and data matrices).
 ArrowFiles <- createArrowFiles(inputFiles = inputFiles,
                                 sampleNames = names(inputFiles),
-                                minTSS = 4, #Dont set this too high because you can always increase later
+                                minTSS = 6, #4 was the default value
+                               #Dont set this too high because you can always increase later
                                 minFrags = 1000,
                                 addTileMat = TRUE,
                                 addGeneScoreMat = TRUE,
                                 subThreading = TRUE,
                                 verbose = TRUE,
                                 cleanTmp = TRUE,
-                                force = TRUE, # will recreate arrow files anew each time
+                                #force = TRUE, # will recreate arrow files anew each time
                                 logFile = createLogFile("createArrows_Nov")
 )
 
@@ -45,6 +46,7 @@ ATACSeq_project <- ArchRProject(
   copyArrows = TRUE #This is recommended so that you maintain an unaltered copy for later usage.
 )
 getAvailableMatrices(ATACSeq_project)
+
 ##############################################################################################
 # SECTION 2: Quality Control
 
@@ -57,6 +59,7 @@ doubScores <- addDoubletScores(input = ArrowFiles,
                                force = TRUE
 )
 # We filter putative doublets based on the previously determined doublet scores using the filterDoublets() function. This doesn’t physically remove data from the Arrow files but rather tells the ArchRProject to ignore these cells for downstream analysis. The higher the filterRatio, the greater the number of cells potentially removed as doublets.
+# # Finding doublets
 ATACSeq_project <- filterDoublets(ArchRProj = ATACSeq_project)
 
 ### Doublet score
@@ -65,41 +68,27 @@ quantile(ATACSeq_project$DoubletScore)
 ### TSS Enrichment Scores for each cell:
 quantile(ATACSeq_project$TSSEnrichment)
 
+# Filter out Low Quality Cells
+ATACSeq_project <- ATACSeq_project[ATACSeq_project$TSSEnrichment > 6 &
+                                   ATACSeq_project$nFrags > 2000 &
+                                   ATACSeq_project$NucleosomeRatio < 2]
+
 ### Plotting QC metrics - log10(Unique Fragments) vs TSS enrichment score
 df <- getCellColData(ATACSeq_project, select = c("log10(nFrags)", "TSSEnrichment"))
 head(df)
 
-(ggPoint(
-    x = df[,1],
-    y = df[,2],
-    colorDensity = TRUE,
-    continuousSet = "sambaNight",
-    xlabel = "Log10 Unique Fragments",
-    ylabel = "TSS Enrichment",
-    xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
-    ylim = c(0, quantile(df[,2], probs = 0.99))
-) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed"))
+(scatterplot_FragsVsEnrichment <- ggPoint(x = df[,1], y = df[,2],
+                                          colorDensity = TRUE,
+                                          continuousSet = "sambaNight",
+                                          xlabel = "Log10 Unique Fragments",
+                                          ylabel = "TSS Enrichment",
+                                          xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
+                                          ylim = c(0, quantile(df[,2], probs = 0.99))
+                                      ) +
+                                    geom_hline(yintercept = 4, lty = "dashed") +
+                                    geom_vline(xintercept = 3, lty = "dashed"))
 
 ## Plotting Sample Statistics from an ArchRProject
-### Plots (per sample) for TSS enrichment scores.
-#### Ridge plot  - TSS enrichment scores.
-(Group_plot_TSS_ridge <- plotGroups(ArchRProj = ATACSeq_project,
-                                    groupBy = "Sample",
-                                    colorBy = "cellColData",
-                                    name = "TSSEnrichment",
-                                    plotAs = "ridges"
-   ))
-
-### Violin plot - TSS enrichment scores.
-(Group_plot_TSS_violin <- plotGroups(
-    ArchRProj = ATACSeq_project,
-    groupBy = "Sample",
-    colorBy = "cellColData",
-    name = "TSSEnrichment",
-    plotAs = "violin",
-    alpha = 0.4,
-    addBoxPlot = TRUE
-   ))
 
 ### Plots (per sample) for log10 (unique nuclear fragments)
 #### log10 (unique nuclear fragments)
@@ -110,7 +99,7 @@ head(df)
                                        plotAs = "violin"
 )) + ggtitle("nFrags")
 ### violin plot for each sample for TSSEnrichment.
-(Group_plot_nFrags_violin <- plotGroups(ArchRProj = ATACSeq_project,
+(Group_plot_TSS_violin <- plotGroups(ArchRProj = ATACSeq_project,
                                         groupBy = "Sample",
                                         colorBy = "cellColData",
                                         name = "TSSEnrichment",
@@ -119,16 +108,47 @@ head(df)
                                         addBoxPlot = TRUE
 )) + ggtitle("TSSEnrichment")
 
-Group_plot_nFrags_violin + Group_plot_nFrags_violin + patchwork::plot_layout(nrow = 1)
+(Group_plot_BLR_violin <- plotGroups(ArchRProj = ATACSeq_project,
+                                     groupBy = "Sample",
+                                     colorBy = "cellColData",
+                                     name = "BlacklistRatio",
+                                     plotAs = "violin",
+                                     alpha = 0.4,
+                                     addBoxPlot = TRUE
+)) + ggtitle("BlacklistRatio")
+
+(Group_plot_NR_violin <- plotGroups(ArchRProj = ATACSeq_project,
+                                     groupBy = "Sample",
+                                     colorBy = "cellColData",
+                                     name = "NucleosomeRatio",
+                                     plotAs = "violin",
+                                     alpha = 0.4,
+                                     addBoxPlot = TRUE
+)) + ggtitle("NucleosomeRatio")
+
+(Group_plot_DS_violin <- plotGroups(ArchRProj = ATACSeq_project,
+                                    groupBy = "Sample",
+                                    colorBy = "cellColData",
+                                    name = "DoubletScore",
+                                    plotAs = "violin",
+                                    alpha = 0.4,
+                                    addBoxPlot = TRUE
+)) + ggtitle("DoubletScore")
+
+Group_plot_nFrags_violin + Group_plot_TSS_violin + Group_plot_BLR_violin +
+  Group_plot_NR_violin + Group_plot_DS_violin + patchwork::plot_layout(nrow = 2)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
 (FragSizePlot <- plotFragmentSizes(ArchRProj = ATACSeq_project))
 (TSSEnrichmentPlot <- plotTSSEnrichment(ArchRProj = ATACSeq_project))
+FragSizePlot + TSSEnrichmentPlot + patchwork::plot_layout(nrow = 1)
 
 #Saving both these plots and ArchR Project
 plotPDF(FragSizePlot, TSSEnrichmentPlot,name = "QC-Sample-FragSizes-TSSProfile.pdf",
         ArchRProj = ATACSeq_project, addDOC = FALSE, width = 8, height = 8)
 saveArchRProject(ArchRProj = ATACSeq_project, outputDirectory = "D:/ATACSeq/", load = FALSE)
+
+
 
 ## Dimensionality Reduction and Clustering
 ATACSeq_project <- addIterativeLSI(
