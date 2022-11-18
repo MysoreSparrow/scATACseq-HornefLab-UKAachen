@@ -58,7 +58,7 @@ doubScores <- addDoubletScores(input = ArrowFiles,
                                k = 30, #Refers to how many cells near a "pseudo-doublet" to count
                                knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
                                LSIMethod = 1,
-                               force = TRUE
+                               #force = TRUE
 )
 # We filter putative doublets based on the previously determined doublet scores using the filterDoublets() function. This doesn’t physically remove data from the Arrow files but rather tells the ArchRProject to ignore these cells for downstream analysis. The higher the filterRatio, the greater the number of cells potentially removed as doublets.
 # # Finding doublets
@@ -165,30 +165,36 @@ ATACSeq_project <- addIterativeLSI(
     ),
     varFeatures = 10000,
     dimsToUse = 1:30,
-    force = TRUE
+    #force = TRUE
 )
 
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                            UMAP on the LSI results                         ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-archrproj <- addUMAP(ATACSeq_project,
+ATACSeq_project <- addUMAP(ATACSeq_project,
                      reducedDims = "ATACSeq_LSI",
                      name = "UMAP_ATAC",
                      minDist = 0.8,
-                     force = TRUE
+                     #force = TRUE
                      )
 
 # Clustering
 ATACSeq_project <- addClusters(
     input = ATACSeq_project,
-    reducedDims = "IterativeLSI",
+    reducedDims = "ATACSeq_LSI",
     method = "Seurat",
     name = "Clusters",
     resolution = 0.8,
-    force = TRUE
+   #force = TRUE
 )
 
+plotEmbedding(ATACSeq_project,
+              name = "Clusters",
+              embedding = "UMAP_ATAC",
+              size = 1.5,
+              labelAsFactors = F,
+              labelMeans=F)
 
 # ### Clustering using scran
 # ATACSeq_project <- addClusters(
@@ -217,11 +223,11 @@ confusion_Matrix <- confusion_Matrix / Matrix::rowSums(confusion_Matrix)
 p1 <- (plotEmbedding(ArchRProj = ATACSeq_project,
                     colorBy = "cellColData",
                     name = "Sample",
-                    embedding = "UMAP"))
+                    embedding = "UMAP_ATAC"))
 p2 <- (plotEmbedding(ArchRProj = ATACSeq_project,
-              colorBy = "cellColData",
-              name = "Clusters",
-              embedding = "UMAP"))
+                    colorBy = "cellColData",
+                    name = "Clusters",
+                    embedding = "UMAP_ATAC"))
 
 ggAlignPlots(p1, p2, type = "h")
 (plotPDF(p1,p2,
@@ -275,14 +281,24 @@ cluster10_df <- as.data.frame(markerList$C10)
 
 # 3. Marker Genes
 ##  visualize all of the marker features simultaneously
-markerGenes  <- c("Plag2g2a", "Defa-rs1", "Mmp7",
-                  "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
-heatmapGS <- markerHeatmap(
-  seMarker = markersGS,
-  cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
-  labelMarkers = markerGenes,
-  transpose = TRUE
+markerGenesList  <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2",
+                      "Ephb3", "Sis", "Ada", "Lct" )
+
+(heatmapGS <- plotMarkerHeatmap(seMarker = markersGS,
+                                cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
+                                #limits = c(-3, 3),
+                                plotLog2FC = TRUE,
+                                labelMarkers = markerGenesList,
+                                transpose = FALSE,
+                                labelRows = TRUE,
+                                clusterCols = TRUE,
+                                nPrint = 10,
+                                #returnMatrix = TRUE
+                                )
 )
 
-ComplexHeatmap::draw(heatmapGS, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+# ComplexHeatmap::draw(heatmapGS, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+
+# The gene activities can be used to visualize the expression of marker genes on the scATAC-seq clusters:
+#
 
