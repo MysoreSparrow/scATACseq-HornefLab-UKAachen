@@ -52,7 +52,10 @@ getAvailableMatrices(ATACSeq_project)
 ##############################################################################################
 # SECTION 2: Quality Control
 
-## SECTION2.1 : Doublet Removal
+
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##                            ## SECTION2.1 : Doublet Removal                 ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##Inferring scATAC-seq Doublets with ArchR : A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
 doubScores <- addDoubletScores(input = ArrowFiles,
                                k = 30, #Refers to how many cells near a "pseudo-doublet" to count
@@ -158,17 +161,11 @@ ATACSeq_project <- addIterativeLSI(
     useMatrix = "TileMatrix",
     name = "ATACSeq_LSI",
     iterations = 2,
-    clusterParams = list( #See Seurat::FindClusters
-        resolution = 0.2,
-        sampleCells = 10000,
-        n.start = 10
-    ),
+    clusterParams = list(resolution = 0.2, sampleCells = 10000, n.start = 10),#See Seurat::FindClusters
     varFeatures = 10000,
     dimsToUse = 1:30,
     #force = TRUE
 )
-
-
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                            UMAP on the LSI results                         ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -256,13 +253,9 @@ ggAlignPlots(p1, p2, type = "h")
 
 # Gene Scores and Marker Genes with ArchR
 ## Identifying Marker Genes
-markersGS <- getMarkerFeatures(
-    ArchRProj = ATACSeq_project,
-    useMatrix = "GeneScoreMatrix",
-    groupBy = "Clusters",
-    bias = c("TSSEnrichment", "log10(nFrags)"),
-    testMethod = "wilcoxon"
-)
+markersGS <- getMarkerFeatures(ArchRProj = ATACSeq_project, useMatrix = "GeneScoreMatrix",
+                               groupBy = "Clusters", bias = c("TSSEnrichment", "log10(nFrags)"),
+                               testMethod = "wilcoxon")
 ## Markers List
 markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0")
 cluster1_df <- as.data.frame(markerList$C1)
@@ -275,30 +268,52 @@ cluster7_df <- as.data.frame(markerList$C7)
 cluster8_df <- as.data.frame(markerList$C8)
 cluster9_df <- as.data.frame(markerList$C9)
 cluster10_df <- as.data.frame(markerList$C10)
-# cluster11_df <- as.data.frame(markerList$C11)
-# cluster12_df <- as.data.frame(markerList$C12)
-# cluster13_df <- as.data.frame(markerList$C13)
 
-# 3. Marker Genes
+# SECTION3. Marker Genes
 ##  visualize all of the marker features simultaneously
-markerGenesList  <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2",
-                      "Ephb3", "Sis", "Ada", "Lct" )
-
-(heatmapGS <- plotMarkerHeatmap(seMarker = markersGS,
-                                cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
-                                #limits = c(-3, 3),
-                                plotLog2FC = TRUE,
-                                labelMarkers = markerGenesList,
-                                transpose = FALSE,
-                                labelRows = TRUE,
-                                clusterCols = TRUE,
-                                nPrint = 10,
-                                #returnMatrix = TRUE
-                                )
-)
-
+markerGenesList  <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
+markerGenesList2 <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
+(heatmapGS <- plotMarkerHeatmap(seMarker = markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
+                                #limits = c(-3, 3), #returnMatrix = TRUE
+                                plotLog2FC = TRUE, labelMarkers = markerGenesList2, transpose = FALSE,
+                                labelRows = TRUE, clusterCols = TRUE, nPrint = 10))
 # ComplexHeatmap::draw(heatmapGS, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 8, height = 8,
+        ArchRProj = ATACSeq_project, addDOC = FALSE)
 
-# The gene activities can be used to visualize the expression of marker genes on the scATAC-seq clusters:
-#
+# The gene activities can be used to visualize the expression of marker genes on the scATAC-seq clusters.
+# features <- getFeatures(ArchRProj = ATACSeq_project, useMatrix = "GeneScoreMatrix")
+
+# Visualizing Marker Genes on an Embedding :
+(MarkerGeneEmbeddingPlot <- plotEmbedding(ArchRProj = ATACSeq_project, colorBy = "GeneScoreMatrix",
+                                          name = markerGenesList2, embedding = "UMAP_ATAC",
+                                          quantCut = c(0.01, 0.95), imputeWeights = NULL))
+# Plot all marker genes via cow plot
+MarkerGeneEmbedding_CowPlot <- lapply(MarkerGeneEmbeddingPlot,
+                                      function(x){ x + guides(color = FALSE, fill = FALSE) +
+                                                  theme_ArchR(baseSize = 6.5) +
+                                                  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+                                                  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(),
+                                                        axis.text.y=element_blank(), axis.ticks.y=element_blank())
+                                      })
+#do.call(cowplot::plot_grid, c(list(ncol = 3),MarkerGeneEmbedding_CowPlot))
+patchwork::wrap_plots(MarkerGeneEmbedding_CowPlot)
+plotPDF(plotList = MarkerGeneEmbedding_CowPlot, name = "Plot-UMAP-Marker-Genes-WO-Imputation.pdf",
+        ArchRProj = ATACSeq_project, addDOC = FALSE, width = 8, height = 8)
+
+# SECTION 4: Annotating Cell types with a Reference Dataset
+# ArchR includes a function to align a reference scRNA-seq dataset, and impute cell type annotations based on the
+# reference annotation (addGeneIntegrationMatrix).
+# As a reference, we will use a pre-processed scRNA-seq dataset for human PBMCs.
+
+# Read-in the reference
+annotation_reference <- readRDS(file.path("D:/scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds"))
+
+# add gene integration matrix
+ATACSeq_project <- addGeneIntegrationMatrix(ArchRProj   = ATACSeq_project, useMatrix   = "GeneScoreMatrix",
+                                      matrixName  = "GeneIntegrationMatrix", reducedDims = "ATACSeq_LSI",
+                                      seRNA       = annotation_reference, addToArrow  = FALSE,
+                                      groupRNA    = "celltype", nameCell    = "predictedCell_Un",
+                                      nameGroup   = "predictedGroup_Un", nameScore   = "predictedScore_Un")
+
 
