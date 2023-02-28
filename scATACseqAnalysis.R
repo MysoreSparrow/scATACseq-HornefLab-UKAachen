@@ -9,7 +9,6 @@ suppressPackageStartupMessages(library("scran"))
 suppressPackageStartupMessages(library("pheatmap"))
 suppressPackageStartupMessages(library("ComplexHeatmap"))
 suppressPackageStartupMessages(library("patchwork"))
-suppressPackageStartupMessages(library("dplyr"))
 set.seed(1234)
 
 # Set the number of threads
@@ -18,8 +17,15 @@ addArchRThreads(threads = 8)
 here::i_am("scATACseqAnalysis.R")
 
 # Input data 
-day12 <- "/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/Day12Sample/2_Processed_data/V16_d12_230105/fragments.tsv.gz"
-inputFiles <- c('scATAC' = day12)
+
+day1 <- "/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/Day12Sample/2_Processed_data/V16_d12_230105/fragments.tsv.gz"
+day5 <- '/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/Day5Sample/2_Processed_data/AJ_v12/fragments.tsv.gz'
+day10 <- '/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/Day10Sample/compressed_tars/2_Processed_data/AJ_V12_d10_L129_UI/fragments.tsv.gz'
+day25 <- '/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/Day25Sample/fragments.tsv.gz'
+day4dpi <- '/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/4dpiSample/fragments.tsv.gz'
+
+inputFiles <- c('scATAC' = c(day1, day5, day10, day25, day4dpi))
+print(names(inputFiles))
 
 # Add respective Genome
 addArchRGenome("mm10")
@@ -27,16 +33,18 @@ addArchRGenome("mm10")
 ## Creating Arrow Files: #Each Arrow file stores all of the data associated with an individual sample (i.e. metadata, accessible fragments, and data matrices).
 ArrowFiles <- createArrowFiles(inputFiles = inputFiles,
                                sampleNames = names(inputFiles),
-                               minTSS = 4, #4 was the default value
+                               # filterFrags = 2500, 
+                               minTSS = 5, #4 was the default value
                                #Dont set this too high because you can always increase later
-                               minFrags = 1000,
+                               minFrags = 2500,
                                addTileMat = TRUE,
                                addGeneScoreMat = TRUE,
                                subThreading = TRUE,
                                verbose = TRUE,
                                cleanTmp = TRUE,
-                               #force = TRUE, # will recreate arrow files anew each time
-                               logFile = createLogFile("d12"))
+                               force = FALSE, # will recreate arrow files anew each time
+                               logFile = createLogFile("All5")
+                               )
 
 ##############################################################################################
 #                             ## SECTION 2: Quality Control
@@ -46,9 +54,11 @@ ArrowFiles <- createArrowFiles(inputFiles = inputFiles,
 ##Inferring scATAC-seq Doublets with ArchR : A doublet refers to a single droplet that received a single barcoded bead and more than one nucleus. This causes the reads from more than one cell to appear as a single cell that is effectively the average of the two cells. These are removed computationally!
 doubScores <- addDoubletScores(input = ArrowFiles,
                                k = 30, #Refers to how many cells near a "pseudo-doublet" to count
-                               knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search.
+                               knnMethod = "LSI", #Refers to the embedding to use for nearest neighbor search.
                                LSIMethod = 1,
-                               force = FALSE)
+                               force = FALSE,
+                               verbose = TRUE
+                               )
 
 ##############################################################################################
 ##                     SECTION3 : Setting up ArchR project
@@ -56,41 +66,40 @@ doubScores <- addDoubletScores(input = ArrowFiles,
 ##                          # 3.1 ## Creating ArchR Project                   ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 
-ATACSeq_project_d12 <- ArchRProject(ArrowFiles = ArrowFiles,
-                                    outputDirectory = "/home/keshavprasad/Documents/scATACseq/d12/",
+ATACSeq_project_All5 <- ArchRProject(ArrowFiles = ArrowFiles,
+                                    outputDirectory = "/home/keshavprasad/Documents/scATACseq/All5/",
                                     copyArrows = FALSE #This is recommended so that you maintain an unaltered copy for later usage.
 )
-paste0("Memory Size = ", round(object.size(ATACSeq_project_d12) / 10^6, digits = 3), " MB")
-getAvailableMatrices(ATACSeq_project_d12)
+paste0("Memory Size = ", round(object.size(ATACSeq_project_All5) / 10^6, digits = 3), " MB")
+getAvailableMatrices(ATACSeq_project_All5)
 
 # Inspect the newly created Project.
-print(ATACSeq_project_d12)
+print(ATACSeq_project_All5)
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                          # 3.2 Manipulating An ArchRProject                ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 # Cell names
-head(ATACSeq_project_d12$cellNames)
+head(ATACSeq_project_All5$cellNames)
 # Sample names
-head(ATACSeq_project_d12$Sample)
+head(ATACSeq_project_All5$Sample)
 # TSS Enrichment
-head(ATACSeq_project_d12$TSSEnrichment)
+head(ATACSeq_project_All5$TSSEnrichment)
 # One can access the TSS Enrichment Scores for each cell:
-quantile(ATACSeq_project_d12$TSSEnrichment)
+quantile(ATACSeq_project_All5$TSSEnrichment)
 # doublet Enrichment 
-head(ATACSeq_project_d12$DoubletEnrichment)
+head(ATACSeq_project_All5$DoubletEnrichment)
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                          # 3.3 Obtaining columns from cellColData         ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-DoubletEnrichment_df <- getCellColData(ATACSeq_project_d12, select = "DoubletEnrichment")
+DoubletEnrichment_df <- getCellColData(ATACSeq_project_All5, select = "DoubletEnrichment")
 head(DoubletEnrichment_df, 30)
-
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ## #3.3 Plotting QC metrics - log10(Unique Fragments) vs TSS enrichment score      ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-QCMetric_df <- getCellColData(ATACSeq_project_d12, select = c("log10(nFrags)", "TSSEnrichment"))
+QCMetric_df <- getCellColData(ATACSeq_project_All5, select = c("log10(nFrags)", "TSSEnrichment"))
 (scatterplot_UniqueFragsVsEnrichment <- ggPoint(x = QCMetric_df[,1], 
                                                 y = QCMetric_df[,2],
                                                 colorDensity = TRUE,
@@ -104,7 +113,7 @@ QCMetric_df <- getCellColData(ATACSeq_project_d12, select = c("log10(nFrags)", "
 
 plotPDF(scatterplot_UniqueFragsVsEnrichment, 
         name = "TSS-vs-Frags.pdf", 
-        ArchRProj = ATACSeq_project_d12, 
+        ArchRProj = ATACSeq_project_All5, 
         addDOC = TRUE)
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -113,55 +122,55 @@ plotPDF(scatterplot_UniqueFragsVsEnrichment,
 # Make a violin plot for each sample for the TSS enrichment scores.
 
 ### violin plot for each sample for TSSEnrichment.
-Group_plot_TSS_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_TSS_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                      groupBy = "Sample",
                                      colorBy = "cellColData",
                                      name = "TSSEnrichment",
                                      plotAs = "violin",
                                      alpha = 0.4,
-                                     addBoxPlot = TRUE) + ggtitle("TSSEnrichment")
+                                     addBoxPlot = TRUE) + ggtitle("TSSEnrichment"))
 
 ### Plots (per sample) for log10 (unique nuclear fragments)
 #### log10 (unique nuclear fragments)
-Group_plot_nFrags_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_nFrags_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                         groupBy = "Sample",
                                         colorBy = "cellColData",
                                         name = "log10(nFrags)",
                                         plotAs = "violin",
                                         alpha = 0.4,
-                                        addBoxPlot = TRUE) + ggtitle("nFrags")
+                                        addBoxPlot = TRUE) + ggtitle("nFrags"))
 ### violin plot for each sample for TSSEnrichment.
-Group_plot_TSS_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_TSS_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                      groupBy = "Sample",
                                      colorBy = "cellColData",
                                      name = "TSSEnrichment",
                                      plotAs = "violin",
                                      alpha = 0.4,
-                                     addBoxPlot = TRUE) + ggtitle("TSSEnrichment")
+                                     addBoxPlot = TRUE) + ggtitle("TSSEnrichment"))
 
-Group_plot_BLR_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_BLR_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                      groupBy = "Sample",
                                      colorBy = "cellColData",
                                      name = "BlacklistRatio",
                                      plotAs = "violin",
                                      alpha = 0.4,
-                                     addBoxPlot = TRUE) + ggtitle("BlacklistRatio")
+                                     addBoxPlot = TRUE) + ggtitle("BlacklistRatio"))
 
-Group_plot_NR_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_NR_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                     groupBy = "Sample",
                                     colorBy = "cellColData",
                                     name = "NucleosomeRatio",
                                     plotAs = "violin",
                                     alpha = 0.4,
-                                    addBoxPlot = TRUE) + ggtitle("NucleosomeRatio")
+                                    addBoxPlot = TRUE) + ggtitle("NucleosomeRatio"))
 
-Group_plot_DS_violin <- plotGroups(ArchRProj = ATACSeq_project_d12,
+(Group_plot_DS_violin <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                     groupBy = "Sample",
                                     colorBy = "cellColData",
                                     name = "DoubletScore",
                                     plotAs = "violin",
                                     alpha = 0.4,
-                                    addBoxPlot = TRUE) + ggtitle("DoubletScore")
+                                    addBoxPlot = TRUE) + ggtitle("DoubletScore"))
 
 plotPDF(Group_plot_nFrags_violin, 
         Group_plot_TSS_violin, 
@@ -169,16 +178,16 @@ plotPDF(Group_plot_nFrags_violin,
         Group_plot_NR_violin,
         Group_plot_DS_violin, 
         name = "QC-Sample-Statistics.pdf", 
-        ArchRProj = ATACSeq_project_d12, 
+        ArchRProj = ATACSeq_project_All5, 
         addDOC = TRUE, width = 12, height = 12)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
-(FragSizePlot = plotFragmentSizes(ArchRProj = ATACSeq_project_d12))
-(TSSEnrichmentPlot = plotTSSEnrichment(ArchRProj = ATACSeq_project_d12))
+(FragSizePlot = plotFragmentSizes(ArchRProj = ATACSeq_project_All5))
+(TSSEnrichmentPlot = plotTSSEnrichment(ArchRProj = ATACSeq_project_All5))
 plotPDF(FragSizePlot, 
         TSSEnrichmentPlot, 
         name = "QC-Sample-FragSizes-TSSProfile.pdf", 
-        ArchRProj = ATACSeq_project_d12, 
+        ArchRProj = ATACSeq_project_All5, 
         addDOC = TRUE, width = 10, height = 10)
 
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -188,241 +197,224 @@ plotPDF(FragSizePlot,
 # The higher the filterRatio, the greater the number of cells potentially removed as doublets.
 
 ## Finding doublets
-ATACSeq_project_d12 <- filterDoublets(ArchRProj = ATACSeq_project_d12)
+ATACSeq_project_All5 <- filterDoublets(ArchRProj = ATACSeq_project_All5)
 
-
-
-#  Saving both these plots and ArchR Project
-# plotPDF(FragSizePlot, TSSEnrichmentPlot,
-#         name = "QC-Sample-FragSizes-TSSProfile.pdf",
-#         ArchRProj = ATACSeq_project_d12,
-#         addDOC = TRUE, width = 8, height = 8)
-
-# saveArchRProject(ArchRProj = ATACSeq_project_d12, 
-#                  outputDirectory = "/home/keshavprasad/Documents/scATACseq/d12/", 
-#                  load = FALSE)
-
-
-
-
-# 
-# ### Doublet score
-# Doublet_score_df <- as.data.frame(ATACSeq_project_d12$DoubletScore)
-# quantile(ATACSeq_project_d12$DoubletScore)
-# ### TSS Enrichment Scores for each cell:
-# quantile(ATACSeq_project_d12$TSSEnrichment)
-# 
-# # Filter out Low Quality Cells
-# ATACSeq_project_d12 <- ATACSeq_project_d12[ATACSeq_project_d12$TSSEnrichment > 5 &
-#                                            ATACSeq_project_d12$nFrags > 2000 &
-#                                            ATACSeq_project_d12$NucleosomeRatio < 2]
-
-
-
-
-
-
-
-ATACSeq_project <- addIterativeLSI(
-  ArchRProj = ATACSeq_project,
-  useMatrix = "TileMatrix",
-  name = "ATACSeq_LSI",
-  iterations = 2,
-  clusterParams = list(resolution = 0.2, sampleCells = 10000, n.start = 10),#See Seurat::FindClusters
-  varFeatures = 10000,
-  dimsToUse = 1:30,
-  #force = TRUE
-)
+##############################################################################################
+##                     SECTION4 : Dimensional Reduction
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##                            UMAP on the LSI results                         ##
+##                          # 4.1 ## Reducing Dims via Iterative LSI                   ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-ATACSeq_project <- addUMAP(ATACSeq_project,
-                           reducedDims = "ATACSeq_LSI",
-                           name = "UMAP_ATAC",
-                           minDist = 0.8,
-                           #force = TRUE
+# The most common parameters to tweak are iterations, varFeatures, and resolution. 
+
+ATACSeq_project_All5 <- addIterativeLSI(ArchRProj = ATACSeq_project_All5,
+                                        useMatrix = "TileMatrix", 
+                                        name = "IterativeLSI_all5", 
+                                        iterations = 6, 
+                                        clusterParams = list( #See Seurat::FindClusters
+                                          resolution = c(0.8), 
+                                          sampleCells = 10000, 
+                                          n.start = 10), 
+                                        varFeatures = 25000, 
+                                        dimsToUse = 1:30,
+                                        force = TRUE
+                                      ) 
+
+# It is important to note that LSI is not deterministic. 
+# This means that even if you run LSI in exactly the same way with exactly the same parameters, 
+# you will not get exactly the same results. Of course, they will be highly similar, 
+# but not identical. So make sure to save your ArchRProject or the relevant LSI information 
+# once you’ve settled on an ideal dimensionality reduction. For the purposes of this project, 
+# we will create a reducedDims object called “IterativeLSI_all5”.
+  
+#––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##           # 4.4 ## Batch Effect Correction with HARMONY                   ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+
+ATACSeq_project_All5 <- addHarmony(ArchRProj = ATACSeq_project_All5, 
+                        reducedDims = "IterativeLSI_all5", 
+                        name = "Harmony_all5",
+                        groupBy = "Sample",
+                        force = TRUE
 )
 
-# Clustering
-ATACSeq_project <- addClusters(
-  input = ATACSeq_project,
-  reducedDims = "ATACSeq_LSI",
-  method = "Seurat",
-  name = "Clusters",
-  resolution = 0.8,
-  #force = TRUE
+##############################################################################################
+##                     SECTION5 : Clustering
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##            # 5.1 ## Creating clusters based on Iterative LSI object      ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+# Uses graph clustering approach from Seurat, as used for scRNAseq
+ATACSeq_project_All5 <- addClusters(input = ATACSeq_project_All5,
+                                    reducedDims = "IterativeLSI_all5",
+                                    method = "Seurat",
+                                    name = "Clusters",
+                                    resolution = 0.8
 )
 
-plotEmbedding(ATACSeq_project,
-              name = "Clusters",
-              embedding = "UMAP_ATAC",
-              size = 1.5,
-              labelAsFactors = F,
-              labelMeans=F)
+# Accessing the clusters
+head(ATACSeq_project_All5$Clusters)
+# tabulate the number of cells present in each cluster:
+table(ATACSeq_project_All5$Clusters)
 
-# ### Clustering using scran
-# ATACSeq_project <- addClusters(
-#     input = ATACSeq_project,
-#     reducedDims = "IterativeLSI",
-#     method = "scran",
-#     name = "ScranClusters",
-#     k = 15,
-#     force = TRUE
-# )
+# To better understand which samples reside in which clusters, we can create a 
+# cluster confusion matrix across each sample using the confusionMatrix() function.
+cM <- confusionMatrix(paste0(ATACSeq_project_All5$Clusters), paste0(ATACSeq_project_All5$Sample))
+print(cM)
 
-## Clusters:
-### number of cells present in each cluster:
-table(ATACSeq_project$Clusters)
+# plotting the Confusion Matrix
+cM <- cM / Matrix::rowSums(cM)
+(p <- pheatmap::pheatmap(
+  mat = as.matrix(cM), 
+  color = paletteContinuous("whiteBlue"), 
+  border_color = "black"
+))
 
-### Cluster Confusion Matrix
-confusion_Matrix <- confusionMatrix(paste0(ATACSeq_project$Clusters),
-                                    paste0(ATACSeq_project$Sample))
 
-confusion_Matrix <- confusion_Matrix / Matrix::rowSums(confusion_Matrix)
-(pheatmap::pheatmap(
-  mat = as.matrix(confusion_Matrix),
-  color = paletteContinuous("whiteBlue"),
-  border_color = "black"))
+# Adjusting the clustering method and parameters via scran
+ATACSeq_project_All5_scran <- addClusters(
+  input = ATACSeq_project_All5,
+  reducedDims = "IterativeLSI_all5",
+  method = "scran",
+  name = "ScranClusters",
+  k = 15
+)
 
-p1 <- (plotEmbedding(ArchRProj = ATACSeq_project,
-                     colorBy = "cellColData",
-                     name = "Sample",
-                     embedding = "UMAP_ATAC"))
-p2 <- (plotEmbedding(ArchRProj = ATACSeq_project,
-                     colorBy = "cellColData",
-                     name = "Clusters",
-                     embedding = "UMAP_ATAC"))
+##############################################################################################
+##                     SECTION5 : Single Cell Embeddings
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##            # 5.1 ## Visualising clusters via UMAP                          ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––#
 
-ggAlignPlots(p1, p2, type = "h")
-(plotPDF(p1,p2,
-         name = "Plot-UMAP-Sample-Clusters.pdf",
-         ArchRProj = ATACSeq_project,
-         addDOC = TRUE,
-         width = 9,
-         height = 9))
+# In ArchR, embeddings, such as Uniform Manifold Approximation and Projection (UMAP) or 
+# t-distributed stochastic neighbor embedding (t-SNE), are used to visualize single cells in 
+# reduced dimension space. These embeddings each have distinct advantages and disadvantages. 
+# We call these “embeddings” because they are strictly used to visualize the clusters and are 
+# not used to identify clusters which is done in an LSI sub-space as mentioned in previous chapters.
 
-## t-Stocastic Neighbor Embedding (t-SNE)
-# ATACSeq_project <- addTSNE(
-#     ArchRProj = ATACSeq_project,
-#     reducedDims = "IterativeLSI",
-#     name = "TSNE",
-#     perplexity = 30
-# )
-#
-# ## Plotting tSNE
-# q1 <- plotEmbedding(ArchRProj = ATACSeq_project, colorBy = "cellColData",
-#                     name = "Sample", embedding = "TSNE")
-# q2 <- plotEmbedding(ArchRProj = ATACSeq_project, colorBy = "cellColData",
-#                     name = "Clusters", embedding = "TSNE")
-# ggAlignPlots(q1, q2, type = "h")
-# plotPDF(q1,q2, name = "Plot-TSNE-Sample-Clusters.pdf", ArchRProj = ATACSeq_project,
-#         addDOC = FALSE, width = 10, height = 10)
+ATACSeq_project_All5 <- addUMAP(ArchRProj = ATACSeq_project_All5, 
+                                reducedDims = "IterativeLSI_all5", 
+                                name = "UMAP_all5", 
+                                nNeighbors = 30, 
+                                minDist = 0.5, 
+                                metric = "cosine"
+)
 
-# Gene Scores and Marker Genes with ArchR
-## Identifying Marker Genes
-markersGS <- getMarkerFeatures(ArchRProj = ATACSeq_project, useMatrix = "GeneScoreMatrix",
-                               groupBy = "Clusters", bias = c("TSSEnrichment", "log10(nFrags)"),
-                               testMethod = "wilcoxon")
+p1_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                    colorBy = "cellColData", 
+                    name = "Sample", 
+                    embedding = "UMAP")
+p2_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                    colorBy = "cellColData",
+                    name = "Clusters", 
+                    embedding = "UMAP")
+(ggAlignPlots(p1_UMAP, p2_UMAP, type = "h"))
+plotPDF(p1_UMAP,p2_UMAP, 
+        name = "Plot-UMAP-Sample-Clusters.pdf", 
+        ArchRProj = ATACSeq_project_All5, 
+        addDOC = TRUE, 
+        width = 10, 
+        height = 10)
+
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##            # 5.2 ## Visualising clusters via t-SNE                         ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+
+ATACSeq_project_All5 <- addTSNE(ArchRProj = ATACSeq_project_All5, 
+                               reducedDims = "IterativeLSI_all5", 
+                               name = "TSNE_all5",
+                               perplexity = 30
+)
+
+p1_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                         colorBy = "cellColData", 
+                         name = "Sample", 
+                         embedding = "TSNE")
+p2_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                         colorBy = "cellColData",
+                         name = "Clusters", 
+                         embedding = "TSNE")
+(ggAlignPlots(p1_tSNE, p2_tSNE, type = "h"))
+plotPDF(p1_tSNE,p2_tSNE, 
+        name = "Plot-tSNE-Sample-Clusters.pdf", 
+        ArchRProj = ATACSeq_project_All5, 
+        addDOC = TRUE, 
+        width = 10, 
+        height = 10)
+
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##            # 5.3 ## Dimensionality Reduction after Harmony                         ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+
+# can assess the effects of Harmony by visualizing the embedding using UMAP or t-SNE and 
+# comparing this to the embeddings visualized in the previous sections for iterative LSI.
+
+ATACSeq_project_All5 <- addUMAP(ArchRProj = ATACSeq_project_All5, 
+                                reducedDims = "Harmony_all5", 
+                                name = "UMAPHarmony_all5", 
+                                nNeighbors = 30, 
+                                minDist = 0.5, 
+                                metric = "cosine"
+)
+
+p3_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                         colorBy = "cellColData", 
+                         name = "Sample", 
+                         embedding = "UMAPHarmony_all5")
+p4_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+                         colorBy = "cellColData",
+                         name = "Clusters", 
+                         embedding = "UMAPHarmony_all5")
+(ggAlignPlots(p3_UMAP, p4_UMAP, type = "h"))
+
+plotPDF(p1_UMAP,p2_UMAP, p3_UMAP,p4_UMAP, 
+        name = "Plot-UMAP2Harmony-Sample-Clusters.pdf", 
+        ArchRProj = ATACSeq_project_All5, 
+        addDOC = TRUE, 
+        width = 10, 
+        height = 10)
+
+##############################################################################################
+##                     SECTION6 : Gene Scores and Marker Genes
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##            # 7.3 ## Identifying Marker Genes                               ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––#
+
+markersGS <- getMarkerFeatures(
+  ArchRProj = ATACSeq_project_All5, 
+  useMatrix = "GeneScoreMatrix", 
+  groupBy = "Clusters",
+  bias = c("TSSEnrichment", "log10(nFrags)"),
+  testMethod = "wilcoxon"
+)
+
 ## Markers List
-markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0")
-cluster1_df <- as.data.frame(markerList$C1)
-write.csv(cluster1_df, file.path(here(), "/cluster1_df.csv"))
-cluster2_df <- as.data.frame(markerList$C2)
-write.csv(cluster2_df, file.path(here(), "/cluster2_df.csv"))
-cluster3_df <- as.data.frame(markerList$C3)
-write.csv(cluster3_df, file.path(here(), "/cluster3_df.csv"))
-cluster4_df <- as.data.frame(markerList$C4)
-write.csv(cluster4_df, file.path(here(), "/cluster4_df.csv"))
-cluster5_df <- as.data.frame(markerList$C5)
-write.csv(cluster5_df, file.path(here(), "/cluster5_df.csv"))
-cluster6_df <- as.data.frame(markerList$C6)
-write.csv(cluster6_df, file.path(here(), "/cluster6_df.csv"))
-cluster7_df <- as.data.frame(markerList$C7)
-write.csv(cluster7_df, file.path(here(), "/cluster7_df.csv"))
-cluster8_df <- as.data.frame(markerList$C8)
-write.csv(cluster8_df, file.path(here(), "/cluster8_df.csv"))
-cluster9_df <- as.data.frame(markerList$C9)
-write.csv(cluster9_df, file.path(here(), "/cluster9_df.csv"))
-cluster10_df <- as.data.frame(markerList$C10)
-write.csv(cluster10_df, file.path(here(), "/cluster10_df.csv"))
-##–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##          SECTION3. Marker Genes                                           ##
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.05 & Log2FC >= 1.0")
+head(markerList@listData, 19)
+# cluster1_df <- as.data.frame(markerList$C1)
+# cluster2_df <- as.data.frame(markerList$C2)
+# cluster3_df <- as.data.frame(markerList$C3)
+# cluster4_df <- as.data.frame(markerList$C4)
+# cluster5_df <- as.data.frame(markerList$C5)
+# cluster6_df <- as.data.frame(markerList$C6)
+# cluster7_df <- as.data.frame(markerList$C7)
+# cluster8_df <- as.data.frame(markerList$C8)
+# cluster9_df <- as.data.frame(markerList$C9)
+# cluster10_df <- as.data.frame(markerList$C10)
+
+# SECTION3. Marker Genes
 ##  visualize all of the marker features simultaneously
 markerGenesList  <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
-markerGenesList2 <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct" )
-(heatmapGS <- plotMarkerHeatmap(seMarker = markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
-                                #limits = c(-3, 3), #returnMatrix = TRUE
-                                plotLog2FC = TRUE, labelMarkers = markerGenesList2, transpose = FALSE,
+
+(heatmapGS <- plotMarkerHeatmap(seMarker = markersGS, 
+                                cutOff = "FDR <= 0.01 & Log2FC >= 1.0",
+                                limits = c(-3, 3), 
+                                returnMatrix = FALSE,
+                                plotLog2FC = TRUE, 
+                                labelMarkers = markerGenesList, 
+                                transpose = FALSE,
                                 labelRows = TRUE, clusterCols = TRUE, nPrint = 10))
-# ComplexHeatmap::draw(heatmapGS, heatmap_legend_side = "bot", annotation_legend_side = "bot")
-plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 8, height = 8,
-        ArchRProj = ATACSeq_project, addDOC = FALSE)
 
-# The gene activities can be used to visualize the expression of marker genes on the scATAC-seq clusters.
-# features <- getFeatures(ArchRProj = ATACSeq_project, useMatrix = "GeneScoreMatrix")
-
-# Visualizing Marker Genes on an Embedding :
-(MarkerGeneEmbeddingPlot <- plotEmbedding(ArchRProj = ATACSeq_project, colorBy = "GeneScoreMatrix",
-                                          name = markerGenesList2, embedding = "UMAP_ATAC",
-                                          quantCut = c(0.01, 0.95), imputeWeights = NULL))
-# Plot all marker genes via cow plot
-MarkerGeneEmbedding_CowPlot <- lapply(MarkerGeneEmbeddingPlot, function(x){ x + guides(color = FALSE,
-                                                                                       fill = FALSE) +
-    theme_ArchR(baseSize = 6.5) +
-    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-    theme(axis.text.x=element_blank(),
-          axis.ticks.x=element_blank(),
-          axis.text.y=element_blank(),
-          axis.ticks.y=element_blank())
-})
-#do.call(cowplot::plot_grid, c(list(ncol = 3),MarkerGeneEmbedding_CowPlot))
-patchwork::wrap_plots(MarkerGeneEmbedding_CowPlot)
-plotPDF(plotList = MarkerGeneEmbedding_CowPlot, name = "Plot-UMAP-Marker-Genes-WO-Imputation.pdf",
-        ArchRProj = ATACSeq_project, addDOC = FALSE, width = 8, height = 8)
-
-##–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##          SECTION 4: Annotating Cell types with a Reference Dataset       ##
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-# ArchR includes a function to align a reference scRNA-seq dataset, and impute cell type annotations based on the reference annotation (addGeneIntegrationMatrix). As a reference, we will use a pre-processed scRNA-seq dataset for human PBMCs.
-
-# Read-in the reference
-annotate_reference <- readRDS(file.path("D:/scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds"))
-
-# add gene integration matrix
-ATACSeq_project <- addGeneIntegrationMatrix(ArchRProj   = ATACSeq_project,
-                                            useMatrix   = "GeneScoreMatrix",
-                                            matrixName  = "GeneIntegrationMatrix",
-                                            reducedDims = "ATACSeq_LSI",
-                                            seRNA       = annotate_reference,
-                                            addToArrow  = FALSE,
-                                            groupRNA    = "int_0.3_broad_tuft",
-                                            nameCell    = "predictedCell_Un",
-                                            nameGroup   = "predictedGroup_Un",
-                                            nameScore   = "predictedScore_Un"
-)
-
-# Plot UMAP with predicted cell types
-plotEmbedding(ATACSeq_project, name = "predictedGroup_Un",
-              embedding = "UMAP_ATAC",
-              size = 1.5,
-              labelAsFactors = F,
-              labelMeans = F)
-
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##                            Calling Peaks                         ##
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 10, height = 10,
+        ArchRProj = ATACSeq_project_All5, addDOC = TRUE)
 
 
 
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##                            ## SECTION : Per Cell Quality Control        ##
-##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-## Plotting Sample Statistics from an ArchRProject
-
-
-
-Group_plot_nFrags_violin + Group_plot_TSS_violin + Group_plot_BLR_violin +
-  Group_plot_NR_violin +
-  # Group_plot_DS_violin +
-  patchwork::plot_layout(nrow = 2)
