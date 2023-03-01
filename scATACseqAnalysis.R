@@ -301,11 +301,11 @@ ATACSeq_project_All5 <- addUMAP(ArchRProj = ATACSeq_project_All5,
 p1_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
                     colorBy = "cellColData", 
                     name = "Sample", 
-                    embedding = "UMAP")
+                    embedding = "UMAP_all5")
 p2_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
                     colorBy = "cellColData",
                     name = "Clusters", 
-                    embedding = "UMAP")
+                    embedding = "UMAP_all5")
 (ggAlignPlots(p1_UMAP, p2_UMAP, type = "h"))
 plotPDF(p1_UMAP,p2_UMAP, 
         name = "Plot-UMAP-Sample-Clusters.pdf", 
@@ -327,11 +327,11 @@ ATACSeq_project_All5 <- addTSNE(ArchRProj = ATACSeq_project_All5,
 p1_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
                          colorBy = "cellColData", 
                          name = "Sample", 
-                         embedding = "TSNE")
+                         embedding = "TSNE_all5")
 p2_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
                          colorBy = "cellColData",
                          name = "Clusters", 
-                         embedding = "TSNE")
+                         embedding = "TSNE_all5")
 (ggAlignPlots(p1_tSNE, p2_tSNE, type = "h"))
 plotPDF(p1_tSNE,p2_tSNE, 
         name = "Plot-tSNE-Sample-Clusters.pdf", 
@@ -373,9 +373,9 @@ plotPDF(p1_UMAP,p2_UMAP, p3_UMAP,p4_UMAP,
         height = 10)
 
 ##############################################################################################
-##                     SECTION6 : Gene Scores and Marker Genes
+##                     SECTION7 : Gene Scores and Marker Genes
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##            # 7.3 ## Identifying Marker Genes                               ##
+##            # 6.3 ## Identifying Marker Genes                               ##
 ##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––#
 
 markersGS <- getMarkerFeatures(
@@ -418,3 +418,38 @@ plotPDF(heatmapGS, name = "GeneScores-Marker-Heatmap", width = 10, height = 10,
 
 
 
+##–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##          SECTION 7: Annotating Cell types with a Reference Dataset       ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+# ArchR includes a function to align a reference scRNA-seq dataset, and impute cell type annotations based on the reference annotation (addGeneIntegrationMatrix). As a reference, we will use a pre-processed scRNA-seq dataset for human PBMCs.
+
+# Read-in the reference
+annotate_reference <- readRDS(file.path("/media/keshavprasad/HornefLab_Data3/scRNA_AnnotationData_Johannes", 
+                                        "scrna_with_day25.Rds"))
+
+# add gene integration matrix
+ATACSeq_project_All5 <- addGeneIntegrationMatrix(ArchRProj   = ATACSeq_project_All5,
+                                            useMatrix   = "GeneScoreMatrix",
+                                            matrixName  = "GeneIntegrationMatrix",
+                                            reducedDims = "IterativeLSI_all5",
+                                            seRNA       = annotate_reference,
+                                            addToArrow  = FALSE,
+                                            groupRNA    = "int_0.3_broad_tuft",
+                                            nameCell    = "predictedCell_Un",
+                                            nameGroup   = "predictedGroup_Un",
+                                            nameScore   = "predictedScore_Un"
+)
+
+# Plot UMAP with predicted cell types
+(annotated_UMAP_scRNAseqRef <- plotEmbedding(ATACSeq_project_All5, 
+              name = "predictedGroup_Un",
+              embedding = "UMAP_all5",
+              size = 1.5,
+              labelAsFactors = F,
+              labelMeans = F))
+  
+plotPDF(annotated_UMAP_scRNAse, name = "annotated_UMAP_scRNAseqRef_unconstrained",
+        width = 10, height = 10, ArchRProj = ATACSeq_project_All5, addDOC = TRUE)
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+##                            Calling Peaks                         ##
+##––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
