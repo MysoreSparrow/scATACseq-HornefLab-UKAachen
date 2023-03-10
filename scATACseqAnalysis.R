@@ -27,7 +27,7 @@ day4dpi <- "/media/keshavprasad/HornefLab_Data3/ATACSeq/Data/4dpiSample/fragment
 # Samples Input Vector
 samples <- c(day1, day5, day10, day25, day4dpi)
 # Set understandable names
-names(samples) <- c("d1", "d5", "d10", "d25", "4dpi")
+names(samples) <- c("d01", "d05", "d10", "d25", "Inf-d4")
 # inputFiles <- c('scATAC' = samples)
 inputFiles <- c(samples)
 print(names(inputFiles))
@@ -119,102 +119,82 @@ QCMetric_df <- getCellColData(ATACSeq_project_All5, select = c("log10(nFrags)", 
   ylim = c(0, quantile(QCMetric_df[, 2], probs = 0.99))
 ) +
   geom_hline(yintercept = 5, lty = "dashed") +
-  geom_vline(xintercept = 3, lty = "dashed"))
+  geom_vline(xintercept = 3.4, lty = "dashed"))
 
 plotPDF(scatterplot_UniqueFragsVsEnrichment,
-  name = "TSS-vs-Frags.pdf",
+  name = "TSS-vs-Frags_PreFiltering.pdf",
   ArchRProj = ATACSeq_project_All5,
   addDOC = TRUE
 )
 
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-## #3.4 Plotting Sample Statistics from an ArchRProject                       ##
+## #3.4 Plotting QC metrics - PreFiltering                                     ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-# Make a violin plot for each sample for the TSS enrichment scores.
+# Make a violin plot for each sample based on a column from cellcolldata using plotGroups().
+create_GroupPlot <- function(projectname, cellColData_colname){
+  Group_Plot <- plotGroups(
+    ArchRProj = projectname,
+    groupBy = "Sample",
+    colorBy = "cellColData",
+    name = cellColData_colname,
+    plotAs = "violin",
+    alpha = 0.4,
+    addBoxPlot = TRUE
+  )
+  return(Group_Plot)
+}
 
 ### violin plot for each sample for TSSEnrichment.
-(Group_plot_TSS_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "TSSEnrichment",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("TSSEnrichment"))
+(Group_plot_TSS_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "TSSEnrichment") + ggtitle("TSSEnrichment"))
+### Plots (per sample) for log10 (unique nuclear fragments) #### log10 (unique nuclear fragments)
+(Group_plot_nFrags_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "log10(nFrags)") + ggtitle("nFrags"))
+### Plots (per sample) for BlacklistRatio
+(Group_plot_BLR_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "BlacklistRatio") + ggtitle("BlacklistRatio"))
+### Plots (per sample) for NucleosomeRatio
+(Group_plot_NR_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "NucleosomeRatio") + ggtitle("NucleosomeRatio"))
+### Plots (per sample) for DoubletScore
+(Group_plot_DS_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletScore") + ggtitle("DoubletScore"))
+### Plots (per sample) for DoubletEnrichment
+(Group_plot_DE_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletEnrichment") + ggtitle("DoubletEnrichment"))
 
-### Plots (per sample) for log10 (unique nuclear fragments)
-#### log10 (unique nuclear fragments)
-(Group_plot_nFrags_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "log10(nFrags)",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("nFrags"))
-### violin plot for each sample for TSSEnrichment.
-(Group_plot_TSS_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "TSSEnrichment",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("TSSEnrichment"))
-
-(Group_plot_BLR_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "BlacklistRatio",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("BlacklistRatio"))
-
-(Group_plot_NR_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "NucleosomeRatio",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("NucleosomeRatio"))
-
-(Group_plot_DS_violin <- plotGroups(
-  ArchRProj = ATACSeq_project_All5,
-  groupBy = "Sample",
-  colorBy = "cellColData",
-  name = "DoubletScore",
-  plotAs = "violin",
-  alpha = 0.4,
-  addBoxPlot = TRUE
-) + ggtitle("DoubletScore"))
-
-plotPDF(Group_plot_nFrags_violin,
-  Group_plot_TSS_violin,
-  Group_plot_BLR_violin,
-  Group_plot_NR_violin,
-  Group_plot_DS_violin,
-  name = "QC-Sample-Statistics.pdf",
-  ArchRProj = ATACSeq_project_All5,
-  addDOC = TRUE, width = 12, height = 12
-)
+plotPDF(Group_plot_nFrags_violin, Group_plot_TSS_violin, Group_plot_BLR_violin, Group_plot_NR_violin, Group_plot_DS_violin, Group_plot_DE_violin, 
+        name = "QC-Metrics_PreFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 12, height = 12)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
 (FragSizePlot <- plotFragmentSizes(ArchRProj = ATACSeq_project_All5))
 (TSSEnrichmentPlot <- plotTSSEnrichment(ArchRProj = ATACSeq_project_All5))
-plotPDF(FragSizePlot,
-  TSSEnrichmentPlot,
-  name = "QC-Sample-FragSizes-TSSProfile.pdf",
-  ArchRProj = ATACSeq_project_All5,
-  addDOC = TRUE, width = 10, height = 10
-)
+plotPDF(FragSizePlot, TSSEnrichmentPlot, name = "QC-Sample-FragSizes-TSSProfile_PreFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 10, height = 10)
 
+# Filter out low Quality Cells from ArchR Project, based on the violin plots of QC Metrics
+ATACSeq_project_All5 <- ATACSeq_project_All5[ATACSeq_project_All5$NucleosomeRatio < 2.5 &
+                                             ATACSeq_project_All5$TSSEnrichment > 6 &
+                                             ATACSeq_project_All5$BlacklistRatio < 0.05 &
+                                             ATACSeq_project_All5$DoubletScore < 50 &
+                                             ATACSeq_project_All5$DoubletEnrichment < 3.5
+                                            ]
+
+# QC Plots PostFiltering
+### violin plot for each sample for TSSEnrichment.
+(Group_plot_TSS_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "TSSEnrichment") + ggtitle("TSSEnrichment"))
+### Plots (per sample) for log10 (unique nuclear fragments) #### log10 (unique nuclear fragments)
+(Group_plot_nFrags_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "log10(nFrags)") + ggtitle("nFrags"))
+### Plots (per sample) for BlacklistRatio
+(Group_plot_BLR_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "BlacklistRatio") + ggtitle("BlacklistRatio"))
+### Plots (per sample) for NucleosomeRatio
+(Group_plot_NR_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "NucleosomeRatio") + ggtitle("NucleosomeRatio"))
+### Plots (per sample) for DoubletScore
+(Group_plot_DS_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletScore") + ggtitle("DoubletScore"))
+### Plots (per sample) for DoubletEnrichment
+(Group_plot_DE_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletEnrichment") + ggtitle("DoubletEnrichment"))
+
+plotPDF(Group_plot_nFrags_violin, Group_plot_TSS_violin, Group_plot_BLR_violin, Group_plot_NR_violin, Group_plot_DS_violin, Group_plot_DE_violin, 
+        name = "QC-Metrics_PreFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 12, height = 12)
+
+## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
+(FragSizePlot_PostFiltering <- plotFragmentSizes(ArchRProj = ATACSeq_project_All5))
+(TSSEnrichmentPlot_PostFiltering <- plotTSSEnrichment(ArchRProj = ATACSeq_project_All5))
+plotPDF(FragSizePlot_PostFiltering, TSSEnrichmentPlot_PostFiltering, name = "QC-Sample-FragSizes-TSSProfile_PostFiltering.pdf", ArchRProj = ATACSeq_project_All5, 
+        addDOC = TRUE, width = 10, height = 10)
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ## # 3.6 Filtering Doublets from an ArchRProject                       ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -238,7 +218,7 @@ saveArchRProject(
 # readRDS(file.path("/media/keshavprasad/HornefLab_Data3/scRNA_AnnotationData_Johannes",
 # "scrna_with_day25.Rds"))
 
-loadArchRProject(path = "./", force = TRUE, showLogo = TRUE)
+# loadArchRProject(path = "./", force = TRUE, showLogo = TRUE)
 ##############################################################################################
 ##                     SECTION4 : Dimensional Reduction, INTEGRATION, CLUSTERING & EMBEDDING
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -253,11 +233,12 @@ loadArchRProject(path = "./", force = TRUE, showLogo = TRUE)
 ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
   addIterativeLSI(# 4.1 ## Reducing Dims via Iterative LSI.
     # The most common parameters to tweak are iterations, varFeatures, and resolution.
+    ArchRProj = ATACSeq_project_All5,
     useMatrix = "TileMatrix",
     name = "IterativeLSI_all5",
-    iterations = 4,
+    iterations = 2,
     clusterParams = list(
-      resolution = c(0.8),
+      resolution = c(0.4),
       sampleCells = 10000,
       n.start = 10
     ),
@@ -270,17 +251,12 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     reducedDims = "IterativeLSI_all5",
     name = "Harmony_all5",
     groupBy = "Sample",
-    force = TRUE
-  ) %>%
-  addClusters(# 5.1 ## Creating clusters based on Iterative LSI object      ##
-    reducedDims = "IterativeLSI_all5",
-    method = "Seurat",
-    name = "Clusters_all5",
-    resolution = 0.5,
+    verbose = TRUE,
     force = TRUE
   ) %>%
   addUMAP(# 5.1 ## Visualising clusters via UMAP
-    reducedDims = "IterativeLSI_all5",
+    ArchRProj = ATACSeq_project_All5,
+    reducedDims = "Harmony_all5", # Need to used the HArmony object for cluistering and UMAP for proper integration
     name = "UMAP_all5",
     nNeighbors = 30,
     minDist = 0.4,
@@ -289,6 +265,15 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     verbose = TRUE,
     saveModel = TRUE
   )
+
+ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
+  addClusters(# 5.1 ## Creating clusters based on Iterative LSI object      ##
+    reducedDims = "Harmony_all5",
+    method = "Seurat",
+    name = "Clusters_all5",
+    resolution = 0.5,
+    force = TRUE
+  ) 
 
 # Accessing the clusters
 head(ATACSeq_project_All5$Clusters_all5)
