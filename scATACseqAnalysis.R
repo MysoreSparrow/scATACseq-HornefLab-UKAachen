@@ -5,7 +5,6 @@
 suppressPackageStartupMessages(library("ArchR"))
 suppressPackageStartupMessages(library("tidyverse"))
 suppressPackageStartupMessages(library("here"))
-suppressPackageStartupMessages(library("scran"))
 suppressPackageStartupMessages(library("pheatmap"))
 suppressPackageStartupMessages(library("ComplexHeatmap"))
 suppressPackageStartupMessages(library("patchwork"))
@@ -83,21 +82,27 @@ getAvailableMatrices(ATACSeq_project_All5)
 
 # Inspect the newly created Project.
 print(ATACSeq_project_All5)
-
+# Save the newly created
+saveArchRProject(
+  ArchRProj = ATACSeq_project_All5,
+  outputDirectory = getOutputDirectory(ATACSeq_project_All5),
+  overwrite = TRUE,
+  load = TRUE,
+  logFile = createLogFile("saveArchRProject_All5"),
+)
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                          # 3.2 Manipulating An ArchRProject                ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 # Cell names
-head(ATACSeq_project_All5$cellNames)
-# Sample names
-head(ATACSeq_project_All5$Sample)
-# TSS Enrichment
-head(ATACSeq_project_All5$TSSEnrichment)
-# One can access the TSS Enrichment Scores for each cell:
-quantile(ATACSeq_project_All5$TSSEnrichment)
-# doublet Enrichment
-head(ATACSeq_project_All5$DoubletEnrichment)
-
+# head(ATACSeq_project_All5$cellNames)
+# # Sample names
+# head(ATACSeq_project_All5$Sample)
+# # TSS Enrichment
+# head(ATACSeq_project_All5$TSSEnrichment)
+# # One can access the TSS Enrichment Scores for each cell:
+# quantile(ATACSeq_project_All5$TSSEnrichment)
+# # doublet Enrichment
+# head(ATACSeq_project_All5$DoubletEnrichment)
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##                          # 3.3 Obtaining columns from cellColData         ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -126,7 +131,6 @@ plotPDF(scatterplot_UniqueFragsVsEnrichment,
   ArchRProj = ATACSeq_project_All5,
   addDOC = TRUE
 )
-
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ## #3.4 Plotting QC metrics - PreFiltering                                     ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -157,7 +161,7 @@ create_GroupPlot <- function(projectname, cellColData_colname){
 ### Plots (per sample) for DoubletEnrichment
 (Group_plot_DE_violin_PreFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletEnrichment") + ggtitle("DoubletEnrichment"))
 
-plotPDF(Group_plot_nFrags_violin, Group_plot_TSS_violin, Group_plot_BLR_violin, Group_plot_NR_violin, Group_plot_DS_violin, Group_plot_DE_violin, 
+plotPDF(Group_plot_TSS_violin_PreFiltering, Group_plot_nFrags_violin_PreFiltering, Group_plot_BLR_violin_PreFiltering, Group_plot_NR_violin_PreFiltering, Group_plot_DS_violin_PreFiltering, Group_plot_DE_violin_PreFiltering, 
         name = "QC-Metrics_PreFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 12, height = 12)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
@@ -187,14 +191,12 @@ ATACSeq_project_All5 <- ATACSeq_project_All5[ATACSeq_project_All5$NucleosomeRati
 ### Plots (per sample) for DoubletEnrichment
 (Group_plot_DE_violin_PostFiltering <- create_GroupPlot(ATACSeq_project_All5, "DoubletEnrichment") + ggtitle("DoubletEnrichment"))
 
-plotPDF(Group_plot_nFrags_violin, Group_plot_TSS_violin, Group_plot_BLR_violin, Group_plot_NR_violin, Group_plot_DS_violin, Group_plot_DE_violin, 
-        name = "QC-Metrics_PreFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 12, height = 12)
+plotPDF(Group_plot_TSS_violin_PostFiltering, Group_plot_nFrags_violin_PostFiltering, Group_plot_BLR_violin_PostFiltering, Group_plot_NR_violin_PostFiltering, Group_plot_DS_violin_PostFiltering, Group_plot_DE_violin_PostFiltering, name = "QC-Metrics_PostFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 12, height = 12)
 
 ## Plotting Sample Fragment Size Distribution and TSS Enrichment Profiles.
 (FragSizePlot_PostFiltering <- plotFragmentSizes(ArchRProj = ATACSeq_project_All5))
 (TSSEnrichmentPlot_PostFiltering <- plotTSSEnrichment(ArchRProj = ATACSeq_project_All5))
-plotPDF(FragSizePlot_PostFiltering, TSSEnrichmentPlot_PostFiltering, name = "QC-Sample-FragSizes-TSSProfile_PostFiltering.pdf", ArchRProj = ATACSeq_project_All5, 
-        addDOC = TRUE, width = 10, height = 10)
+plotPDF(FragSizePlot_PostFiltering, TSSEnrichmentPlot_PostFiltering, name = "QC-Sample-FragSizes-TSSProfile_PostFiltering.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 10, height = 10)
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ## # 3.6 Filtering Doublets from an ArchRProject                       ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -210,9 +212,8 @@ saveArchRProject(
   outputDirectory = getOutputDirectory(ATACSeq_project_All5),
   overwrite = TRUE,
   load = TRUE,
-  logFile = createLogFile("saveArchRProject_All5"),
+  logFile = createLogFile("saveArchRProject_All5_PostQC"),
 )
-
 
 # Load the saved ArchR project
 # readRDS(file.path("/media/keshavprasad/HornefLab_Data3/scRNA_AnnotationData_Johannes",
@@ -230,33 +231,42 @@ saveArchRProject(
 # once you’ve settled on an ideal dimensionality reduction. For the purposes of this project,
 # we will create a reducedDims object called “IterativeLSI_all5”.
 
-ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
-  addIterativeLSI(# 4.1 ## Reducing Dims via Iterative LSI.
-    # The most common parameters to tweak are iterations, varFeatures, and resolution.
+# In the context of scATAC-seq and scRNA-seq data ArchR performs LSI following these steps:
+#   
+#   scATAC-seq: documents=samples, words=regions/peaks. scRNA-seq: documents=samples, words=genes.
+# Calculate word frequency by depth normalization per single cell.
+# Normalize word frequency by the inverse document frequency which weights features by how often they occur
+# Results in a word frequency-inverse document frequency (TF-IDF) matrix, which reflects how important a word (aka region/peak) is to a document (aka sample).
+# Perform singular value decomposition (SVD) on the TF-IDF matrix. 
+
+ATACSeq_project_All5 <- addIterativeLSI(# 4.1 ## Reducing Dims via Iterative LSI.# The most common parameters to tweak are iterations, varFeatures, and resolution.
     ArchRProj = ATACSeq_project_All5,
     useMatrix = "TileMatrix",
     name = "IterativeLSI_all5",
-    iterations = 2,
+    # iterations = 2,
+    saveIterations = FALSE,
     clusterParams = list(
-      resolution = c(0.4),
+      resolution = c(0.2),
       sampleCells = 10000,
       n.start = 10
     ),
-    varFeatures = 25000,
+    varFeatures = 15000,
     dimsToUse = 1:30,
     force = TRUE
-  ) %>%
-  addHarmony(# 4.4 ## Batch Effect Correction with HARMONY                   ##
+) 
+
+ATACSeq_project_All5 <- addHarmony(# 4.4 ## Batch Effect Correction with HARMONY                   ##
     ArchRProj = ATACSeq_project_All5,
     reducedDims = "IterativeLSI_all5",
     name = "Harmony_all5",
     groupBy = "Sample",
     verbose = TRUE,
     force = TRUE
-  ) %>%
-  addUMAP(# 5.1 ## Visualising clusters via UMAP
+) 
+
+ATACSeq_project_All5 <- addUMAP(# 5.1 ## Visualising clusters via UMAP
     ArchRProj = ATACSeq_project_All5,
-    reducedDims = "Harmony_all5", # Need to used the HArmony object for cluistering and UMAP for proper integration
+    reducedDims = "Harmony_all5", # Need to use the Harmony object for clustering and UMAP for proper integration
     name = "UMAP_all5",
     nNeighbors = 30,
     minDist = 0.4,
@@ -264,37 +274,7 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     force = TRUE,
     verbose = TRUE,
     saveModel = TRUE
-  )
-
-ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
-  addClusters(# 5.1 ## Creating clusters based on Iterative LSI object      ##
-    reducedDims = "Harmony_all5",
-    method = "Seurat",
-    name = "Clusters_all5",
-    resolution = 0.5,
-    force = TRUE
-  ) 
-
-# Accessing the clusters
-head(ATACSeq_project_All5$Clusters_all5)
-# tabulate the number of cells present in each cluster:
-table(ATACSeq_project_All5$Clusters_all5)
-
-# To better understand which samples reside in which clusters, we can create a
-# cluster confusion matrix across each sample using the confusionMatrix() function.
-cM <- confusionMatrix(
-  paste0(ATACSeq_project_All5$Clusters_all5),
-  paste0(ATACSeq_project_All5$Sample)
 )
-print(cM)
-
-# plotting the Confusion Matrix
-cM <- cM / Matrix::rowSums(cM)
-(p <- pheatmap::pheatmap(
-  mat = as.matrix(cM),
-  color = paletteContinuous("whiteBlue"),
-  border_color = "black"
-))
 
 # Create a Split view UMAP so that the UMAP for each sample can be visualized separately.
 create_splitUMAP <- function(ATACSeq_project_All5, sampleObject) {
@@ -337,48 +317,54 @@ p1_UMAP <- plotEmbedding(
   embedding = "UMAP_all5",
   keepAxis = TRUE
 )
+plotPDF(p1_UMAP, name = "Plot-UMAP-Sample-Clusters.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 10, height = 10)
 
-
-p2_UMAP <- plotEmbedding(
-  ArchRProj = ATACSeq_project_All5,
-  colorBy = "cellColData",
-  name = "Clusters_all5",
-  embedding = "UMAP_all5",
-  keepAxis = TRUE
+# Adding Clusters 
+ATACSeq_project_All5 <- addClusters(# 5.1 ## Creating clusters based on Iterative LSI object      ##
+    input = ATACSeq_project_All5,
+    reducedDims = "Harmony_all5", # Harmony_all5
+    method = "Seurat",
+    name = "Clusters_all5",
+    resolution = 0.5,
+    force = TRUE
+)
+ATACSeq_project_All5 <- addUMAP(# 5.1 ## Visualising clusters via UMAP
+    ArchRProj = ATACSeq_project_All5,
+    reducedDims = "Harmony_all5", # Need to used the HArmony object for cluistering and UMAP for proper integration
+    name = "ClustersUMAP_all5",
+    nNeighbors = 30,
+    minDist = 0.4,
+    metric = "cosine",
+    force = TRUE,
+    verbose = TRUE,
+    saveModel = TRUE
 )
 
-plotPDF(p1_UMAP, p2_UMAP,
-  name = "Plot-UMAP-Sample-Clusters.pdf",
-  ArchRProj = ATACSeq_project_All5,
-  addDOC = TRUE,
-  width = 10,
-  height = 10
-)
-## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
-##            # 5.2 ## Visualising clusters via t-SNE                         ##
-## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+(p2_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, colorBy = "cellColData", name = "Clusters_all5", embedding = "ClustersUMAP_all5", keepAxis = TRUE))
+plotPDF(p2_UMAP, name = "Plot-UMAP-Clusters.pdf", ArchRProj = ATACSeq_project_All5, addDOC = TRUE, width = 10, height = 10)
 
-# ATACSeq_project_All5 <- addTSNE(ArchRProj = ATACSeq_project_All5,
-#                                reducedDims = "IterativeLSI_all5",
-#                                name = "TSNE_all5",
-#                                perplexity = 30
-# )
-#
-# p1_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
-#                          colorBy = "cellColData",
-#                          name = "Sample",
-#                          embedding = "TSNE_all5")
-# p2_tSNE <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
-#                          colorBy = "cellColData",
-#                          name = "Clusters",
-#                          embedding = "TSNE_all5")
-# (ggAlignPlots(p1_tSNE, p2_tSNE, type = "h"))
-# plotPDF(p1_tSNE,p2_tSNE,
-#         name = "Plot-tSNE-Sample-Clusters.pdf",
-#         ArchRProj = ATACSeq_project_All5,
-#         addDOC = TRUE,
-#         width = 10,
-#         height = 10)
+# 
+# # Accessing the clusters
+head(ATACSeq_project_All5$Clusters_all5)
+# tabulate the number of cells present in each cluster:
+table(ATACSeq_project_All5$Clusters_all5)
+
+# To better understand which samples reside in which clusters, we can create a
+# cluster confusion matrix across each sample using the confusionMatrix() function.
+cM <- confusionMatrix(
+  paste0(ATACSeq_project_All5$Clusters_all5),
+  paste0(ATACSeq_project_All5$Sample)
+)
+print(cM)
+
+# plotting the Confusion Matrix
+cM <- cM / Matrix::rowSums(cM)
+(p <- pheatmap::pheatmap(
+  mat = as.matrix(cM),
+  color = paletteContinuous("whiteBlue"),
+  border_color = "black"
+))
+
 
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##            # 5.3 ## Dimensionality Reduction after Harmony                         ##
@@ -417,7 +403,6 @@ plotPDF(p1_UMAP, p2_UMAP,
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 ##            # 6.3 ## Identifying Marker Genes                               ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––#
-
 markersGS <- getMarkerFeatures(
   ArchRProj = ATACSeq_project_All5,
   useMatrix = "GeneScoreMatrix",
@@ -468,6 +453,7 @@ plotPDF(heatmapGS,
 # ArchR includes a function to align a reference scRNA-seq dataset, and impute cell type annotations based on the reference annotation (addGeneIntegrationMatrix). 
 # As a reference, we will use a pre-processed scRNA-seq dataset for human PBMCs.
 
+##           7.1 Unconstrained Integration       ##
 # Read-in the reference
 annotate_reference <- readRDS(file.path(
   "/media/keshavprasad/HornefLab_Data3/scRNA_AnnotationData_Johannes",
@@ -501,6 +487,23 @@ plotPDF(annotated_UMAP_scRNAseqRef,
   name = "annotated_UMAP_scRNAseqRef_unconstrained",
   width = 10, height = 10, ArchRProj = ATACSeq_project_All5, addDOC = TRUE
 )
-## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
+
+##           7.2 Constrained Integration       ##
+## Now that we have our preliminary unconstrained integration, we will identify general cell types to profide a framework to further refine the integration results. 
+# First, we will identify which cell types from the scRNA-seq data are most abundant in each of our scATAC-seq clusters and , we would ideally constrain the integration to associate similar cell types togther. 
+
+cM_cells <- as.matrix(confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un))
+preClust <- colnames(cM_cells)[apply(cM_cells, 1 , which.max)]
+cbind(preClust, rownames(cM_cells)) #Assignments
+
+# First, lets look at the cell type labels from our scRNA-seq data that were used in our unconstrained integration:
+unique(unique(ATACSeq_project_All5$predictedGroup_Un))
+#From scRNA
+cTNK <- paste0(paste0(1:12), collapse="|")
+cTNK
+
+#Assign scATAC to these categories
+clustTNK <- rownames(cM)[grep(cTNK, preClust)]
+clustTNK
 ##                            Calling Peaks                         ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
