@@ -160,11 +160,24 @@ import_atac <- function(count_path, meta_path, fragment_path){
 atac_data <- Reduce(function(x, y) merge(x, y), list(d01, d05, d10, d25, Inf_dpi4))
 # Save an object to a file
 saveRDS(atac_data, file = "merged_signacobject_all5_unfiltered.rds")
+
+
 atac_data <- RunTFIDF(atac_data)
 atac_data <- FindTopFeatures(atac_data, min.cutoff = 'q0')
 atac_data <- RunSVD(atac_data)
-DepthCor(atac_data)
+DepthCorPlot_all5 <- DepthCor(atac_data)
+
+# Determine Quality metrics for the merged dataset
+(atac_data_all5_plot <- VlnPlot(object = atac_data, features = c('peak_region_fragments', 'pct_reads_in_peaks','blacklist_ratio', 'nucleosome_signal', 'TSS.enrichment'), pt.size = 0.1, ncol = 5))
+
+# Subsetting the data based on Violin plot insights
+atac_data <- subset(x = atac_data, subset = peak_region_fragments > 3000 & peak_region_fragments < 100000 & pct_reads_in_peaks > 30 & blacklist_ratio < 0.05 & nucleosome_signal < 3 & TSS.enrichment > 3)
 
 
-(VlnPlot(object = atac_data,
-        features = c('peak_region_fragments', 'pct_reads_in_peaks','blacklist_ratio', 'nucleosome_signal', 'TSS.enrichment'), pt.size = 0.1, ncol = 5))
+# NonLinear Dimensional Reduction and Clustering
+atac_data <- RunUMAP(object = atac_data, reduction = 'lsi', dims = 2:30)
+(DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) + NoLegend())
+atac_data <- FindNeighbors(object = atac_data, reduction = 'lsi', dims = 2:30)
+atac_data <- FindClusters(object = atac_data, verbose = FALSE, algorithm = 3)
+(DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) + NoLegend())
+atac_data <- RunUMAP(object = atac_data, reduction = 'lsi', dims = 2:30)
