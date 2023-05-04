@@ -40,26 +40,31 @@ print(getOutputDirectory(ATACSeq_project_All5))
 
 
 #' Dimensional Reduction, INTEGRATION, CLUSTERING & EMBEDDING
+# 4.1 ## Reducing Dims via Iterative LSI.# The most common parameters to tweak are iterations, varFeatures, and resolution
 
-ATACSeq_project_All5 <- addIterativeLSI( # 4.1 ## Reducing Dims via Iterative LSI.# The most common parameters to tweak are iterations, varFeatures, and resolution.
+
+ATACSeq_project_All5 <- addIterativeLSI(
   ArchRProj = ATACSeq_project_All5,
   useMatrix = "TileMatrix",
   name = "IterativeLSI_all5",
-  # iterations = 4,
+  #iterations = 4,
   saveIterations = TRUE,
-  clusterParams = list(resolution = c(0.2),
-                       sampleCells = 10000,
-                       n.start = 10),
+  corCutOff = 0.5,
+  clusterParams = list(resolution = c(0.5), sampleCells = 10000, n.start = 10),
   varFeatures = 15000,
   dimsToUse = 1:30,
-  force = TRUE
+  force = TRUE, 
+  verbose = TRUE
 )
+
 ##' Using LSI object as Input to correct for Batch Effects via Harmony
-ATACSeq_project_All5 <- addHarmony( # 4.4 ## Batch Effect Correction with HARMONY                   ##
+ATACSeq_project_All5 <- addHarmony( # 4.4 ## Batch Effect Correction with HARMONY   ##
   ArchRProj = ATACSeq_project_All5,
   reducedDims = "IterativeLSI_all5",
   name = "Harmony_all5",
   groupBy = "Sample",
+  corCutOff = 0.5,
+  dimsToUse = 1:30,
   verbose = TRUE,
   force = TRUE
 ) 
@@ -71,6 +76,7 @@ ATACSeq_project_All5 <- addUMAP( # 5.1 ## Visualising clusters via UMAP
   name = "UMAP_all5",
   nNeighbors = 30,
   minDist = 0.4,
+  dimsToUse = 1:30,
   metric = "cosine",
   force = TRUE,
   verbose = TRUE,
@@ -86,59 +92,6 @@ ATACSeq_project_All5 <- addUMAP( # 5.1 ## Visualising clusters via UMAP
   keepAxis = TRUE
 ) + my_gg_theme)
 plotPDF(p1_UMAP, name = "Plot-UMAP-Samplewise.pdf", ArchRProj = ATACSeq_project_All5, width = 10, height = 10)
-
-###########################################################################################
-
-#' #' UMAP withouit Dim1 
-#' ATACSeq_project_All5 <- addIterativeLSI( # 4.1 ## Reducing Dims via Iterative LSI.# The most common parameters to tweak are iterations, varFeatures, and resolution.
-#'   ArchRProj = ATACSeq_project_All5,
-#'   useMatrix = "TileMatrix",
-#'   name = "IterativeLSI_all5_alternative",
-#'   # iterations = 4,
-#'   saveIterations = TRUE,
-#'   clusterParams = list(resolution = c(0.2),
-#'                        sampleCells = 10000,
-#'                        n.start = 10),
-#'   varFeatures = 15000,
-#'   dimsToUse = 2:30,
-#'   force = TRUE
-#' )
-#' 
-#' ##' Using LSI object as Input to correct for Batch Effects via Harmony
-#' ATACSeq_project_All5 <- addHarmony( # 4.4 ## Batch Effect Correction with HARMONY                   ##
-#'   ArchRProj = ATACSeq_project_All5,
-#'   reducedDims = "IterativeLSI_all5_alternative",
-#'   name = "Harmony_all5_alternative",
-#'   groupBy = "Sample",
-#'   dimsToUse = 2:30,
-#'   verbose = TRUE,
-#'   force = TRUE
-#' ) 
-#' 
-#' ##' Create a UMAP
-#' ATACSeq_project_All5 <- addUMAP( # 5.1 ## Visualising clusters via UMAP
-#'   ArchRProj = ATACSeq_project_All5,
-#'   reducedDims = "Harmony_all5_alternative", # Need to use the Harmony object for clustering and UMAP for proper integration
-#'   name = "UMAP_all5_alternative",
-#'   nNeighbors = 30,
-#'   minDist = 0.4,
-#'   metric = "cosine",
-#'   force = TRUE,
-#'   verbose = TRUE,
-#'   saveModel = TRUE
-#' )
-#' 
-#' ##' Create UMAP Embedding for all samples together
-#' (p1_UMAP <- plotEmbedding(
-#'   ArchRProj = ATACSeq_project_All5,
-#'   colorBy = "cellColData",
-#'   name = "Sample",
-#'   embedding = "UMAP_all5_alternative",
-#'   keepAxis = TRUE
-#' ) + my_gg_theme)
-#' plotPDF(p1_UMAP, name = "Plot-UMAP-Samplewise2.pdf", ArchRProj = ATACSeq_project_All5, width = 10, height = 10)
-
-###########################################################################################
 
 #' Create SplitView UMAP
 my_gg_theme <- theme(axis.title = element_text(size = 15),
@@ -226,6 +179,16 @@ cM <- cM / Matrix::rowSums(cM)
   border_color = "black"
 ) + my_gg_theme)
 
+###########################################################################################
+
+#' UMAP withouit Dim1 
+
+
+###########################################################################################
+
+
+
+
 ## –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 #'          SECTION 7: Annotating Cell types with a Reference Dataset       ##
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -276,11 +239,11 @@ create_SampleWise_splitAnnotatedUMAP <- function(ATACSeq_project_All5, CellType)
 }
 
 # Call the function to create UMAP for each sample
-(Enterocyte_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme)
-(GP_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme)
-(EEC_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme)
-(Stem_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Stem") + my_gg_theme)
-(Tuft_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Tuft") + my_gg_theme)
+(Enterocyte_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme + ggtitle("Enterocyte_UMAP"))
+(GP_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme + ggtitle("Goblet+Paneth_UMAP"))
+(EEC_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme + ggtitle("EEC_UMAP"))
+(Stem_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Stem") + my_gg_theme + ggtitle("Stem_UMAP"))
+(Tuft_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Tuft") + my_gg_theme + ggtitle("Tuft_UMAP"))
 plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
         name = "Plot- SampleWise_Splitview-CellTypeAnnotatedUMAP.pdf",
         ArchRProj = ATACSeq_project_All5, 

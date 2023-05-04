@@ -157,15 +157,17 @@ import_atac <- function(count_path, meta_path, fragment_path){
                            features = c('peak_region_fragments', 'pct_reads_in_peaks','blacklist_ratio', 'nucleosome_signal', 'TSS.enrichment'), pt.size = 0.1, ncol = 5))
 
 # Merge Datasets
-atac_data <- Reduce(function(x, y) merge(x, y), list(d01, d05, d10, d25, Inf_dpi4))
-# Save an object to a file
-saveRDS(atac_data, file = "merged_signacobject_all5_unfiltered.rds")
+# atac_data <- Reduce(function(x, y) merge(x, y), list(d01, d05, d10, d25, Inf_dpi4))
+# # Save an object to a file
+# saveRDS(atac_data, file = "merged_signacobject_all5_unfiltered.rds")
 
+atac_data <- readRDS(file = "merged_signacobject_all5_unfiltered.rds")
+# Load the Merged Object.
 
 atac_data <- RunTFIDF(atac_data)
 atac_data <- FindTopFeatures(atac_data, min.cutoff = 'q0')
 atac_data <- RunSVD(atac_data)
-DepthCorPlot_all5 <- DepthCor(atac_data)
+(DepthCorPlot_all5 <- DepthCor(atac_data))
 
 # Determine Quality metrics for the merged dataset
 (atac_data_all5_plot <- VlnPlot(object = atac_data, features = c('peak_region_fragments', 'pct_reads_in_peaks','blacklist_ratio', 'nucleosome_signal', 'TSS.enrichment'), pt.size = 0.1, ncol = 5))
@@ -176,8 +178,29 @@ atac_data <- subset(x = atac_data, subset = peak_region_fragments > 3000 & peak_
 
 # NonLinear Dimensional Reduction and Clustering
 atac_data <- RunUMAP(object = atac_data, reduction = 'lsi', dims = 2:30)
-(DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) + NoLegend())
+# (DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) ) # + NoLegend()
 atac_data <- FindNeighbors(object = atac_data, reduction = 'lsi', dims = 2:30)
-atac_data <- FindClusters(object = atac_data, verbose = FALSE, algorithm = 3)
-(DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) + NoLegend())
-atac_data <- RunUMAP(object = atac_data, reduction = 'lsi', dims = 2:30)
+atac_data <- FindClusters(object = atac_data, verbose = FALSE, resolution = 0.5, algorithm = 1)
+(DimPlot_all5 <- DimPlot(object = atac_data, label = TRUE) ) # + NoLegend()
+# (atac_data <- RunUMAP(object = atac_data, reduction = 'lsi', dims = 2:30))
+
+# Integrate with scRNAseq Data
+# Read-in the reference
+# annotate_reference <- readRDS(file.path("/media/keshavprasad/HornefLab_Data3/scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds"))
+# 
+# transfer.anchors <- FindTransferAnchors(reference = annotate_reference, 
+#                                         query = atac_data, 
+#                                         reduction = 'cca')
+# 
+# predicted.labels <- TransferData(anchorset = transfer.anchors, 
+#                                  refdata = annotate_reference$int_0.3_broad_tuft,
+#                                   weight.reduction = atac_data[['lsi']],
+#                                   dims = 2:30)
+# 
+# atac_data <- AddMetaData(object = atac_data, metadata = predicted.labels)
+# 
+# (plot1 <- DimPlot(object = annotate_reference, group.by = 'int_0.3_broad_tuft', 
+#                  label = TRUE, repel = TRUE) + NoLegend() + ggtitle('scRNA-seq'))
+# 
+# (plot2 <- DimPlot(object = atac_data, group.by = 'predicted.labels', 
+#                  label = TRUE, repel = TRUE) + NoLegend() + ggtitle('scATAC-seq'))
