@@ -14,9 +14,9 @@
 
 #' SECTION1: Initialization
 
-Package_List <- c("ArchR", "ComplexHeatmap", "writexl", "here", "patchwork", "tidyverse", 
+Package_List <- c("ArchR", "ComplexHeatmap", "writexl", "here", "patchwork", "tidyverse", "magick",
                   "pheatmap","Signac", "Seurat", "stringr", "BSgenome.Mmusculus.UCSC.mm10", 
-                  "ggpubr")
+                  "ggpubr", "chromVARmotifs")
 not_installed <- Package_List[!(Package_List %in% installed.packages()[, "Package"])] 
 # Extract not installed packages
 if (length(not_installed)) install.packages(not_installed) # Install the uninstalled packages
@@ -549,15 +549,12 @@ saveArchRProject(
   logFile = createLogFile("saveArchRProject_All5_postpeakcalling")
 )
 
-
+library(magick)
 #  Identifying Marker Peaks with ArchR
 # Marker features are unique to a specific cell grouping. These can be very useful in understanding cluster- or cell type-specific biology.
 # we are interested to know which peaks are unique to an individual cluster or a small group of clusters. We can do this in an unsupervised fashion in ArchR using the addMarkerFeatures() function in combination with useMatrix = "PeakMatrix". 
-markersPeaks <- getMarkerFeatures(
-  ArchRProj = ATACSeq_project_All5, 
-  useMatrix = "PeakMatrix", 
-  groupBy = "Clusters_all5",
-  bias = c("TSSEnrichment", "log10(nFrags)"),# to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
+markersPeaks <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "PeakMatrix", 
+  groupBy = "Clusters_all5", bias = c("TSSEnrichment", "log10(nFrags)"),# to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
   testMethod = "wilcoxon"
 )
 
@@ -567,15 +564,15 @@ markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", ret
 print(markerList)
 
 # Plotting Marker Peaks 
-heatmapPeaks <- markerHeatmap(seMarker = markersPeaks,cutOff = "FDR <= 0.1 & Log2FC >= 0.5", 
+heatmapPeaks <- markerHeatmap(seMarker = markersPeaks,
+                              cutOff = "FDR <= 0.1 & Log2FC >= 0.5", 
                               transpose = TRUE)
-draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot") 
-plotPDF(heatmapPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8, 
+ComplexHeatmap::draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+plotPDF(heatmapPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-
+# heatmapPeaks
 ## Volcano Plots for Marker Peaks
-
-MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "Erythroid", 
+MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C5", 
                                      cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
 plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
@@ -584,11 +581,11 @@ plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, hei
 # visualise peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameterin the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot.
 
 MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, 
-                                         groupBy = "Clusters2", 
+                                         groupBy = "C5", 
                                          geneSymbol = mg,
                                          features =  getMarkers(markersPeaks, 
                                                                 cutOff = "FDR <= 0.1 & Log2FC >= 1", 
-                                                                returnGR = TRUE)["Erythroid"],
+                                                                returnGR = TRUE)["Clusters_all5"],
                                          upstream = 5000, 
                                          downstream = 5000)
 
@@ -668,7 +665,7 @@ enrichMotifs_MarkerPeaks <- peakAnnoEnrichment(seMarker = markersPeaks, ArchRPro
 
 print(enrichMotifs_MarkerPeaks)
 # Plot this enrich Motifs directly as a Heatmap
-heatmap_enrichMotifs_MarkerPeaks <- plotEnrichHeatmap(enrichMotifs, n = 7, transpose = TRUE)
+heatmap_enrichMotifs_MarkerPeaks <- plotEnrichHeatmap(enrichMotifs_MarkerPeaks, n = 7, transpose = TRUE)
 ComplexHeatmap::draw(heatmap_enrichMotifs_MarkerPeaks, heatmap_legend_side = "bot", 
                      annotation_legend_side = "bot")
 
@@ -708,7 +705,7 @@ print(markerMotifs)
 
 ###' plot the distribution of chromVAR deviation scores for each cluster.
 ChromVarDeviations_plot <- plotGroups(ArchRProj = ATACSeq_project_All5, 
-                                      groupBy = "Clusters2", colorBy = "MotifMatrix", 
+                                      groupBy = "C5", colorBy = "MotifMatrix", 
                                       name = markerMotifs, 
                                       imputeWeights = getImputeWeights(ATACSeq_project_All5))
 
