@@ -692,17 +692,72 @@ ATACSeq_project_All5 <- addBgdPeaks(ATACSeq_project_All5)
 ATACSeq_project_All5 <- addDeviationsMatrix(ArchRProj = ATACSeq_project_All5, 
                                             peakAnnotation = "Motif", force = TRUE)
 # To access these deviations, we use the getVarDeviations() function. If we want this function to return a ggplot object, we set plot = TRUE. 
-plotVarDev <- getVarDeviations(projHeme5, name = "MotifMatrix", plot = TRUE)
+plotVarDev <- getVarDeviations(ATACSeq_project_All5, name = "MotifMatrix", plot = TRUE)
+plotPDF(plotVarDev, name = "Variable-Motif-Deviation-Scores", width = 8, height = 8, 
+        ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
+# Extract Subset of Motives
+motifs <- mg 
+markerMotifs <- getFeatures(ATACSeq_project_All5,
+                            select = paste(motifs, collapse="|"), useMatrix = "MotifMatrix")
+print(markerMotifs)
 
+# markerMotifs <- grep("z:", markerMotifs, value = TRUE)
+# markerMotifs <- markerMotifs[markerMotifs %ni% "z:SREBF1_22"]
+# markerMotifs
 
+###' plot the distribution of chromVAR deviation scores for each cluster.
+ChromVarDeviations_plot <- plotGroups(ArchRProj = ATACSeq_project_All5, 
+                                      groupBy = "Clusters2", colorBy = "MotifMatrix", 
+                                      name = markerMotifs, 
+                                      imputeWeights = getImputeWeights(ATACSeq_project_All5))
 
+# use cowplot to plot the distributions of all of these motifs in a single plot.
+ChromVarDeviations_Allplots <- lapply(seq_along(p), function(x){
+  if(x != 1){
+    ChromVarDeviations_plot[[x]] + guides(color = FALSE, fill = FALSE) + 
+      theme_ArchR(baseSize = 6) +
+      theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm")) +
+      theme(
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank(),
+        axis.title.y=element_blank()
+      ) + ylab("")
+  }else{
+    ChromVarDeviations_plot[[x]] + guides(color = FALSE, fill = FALSE) + 
+      theme_ArchR(baseSize = 6) +
+      theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm")) +
+      theme(
+        axis.ticks.y=element_blank(),
+        axis.title.y=element_blank()
+      ) + ylab("")
+  }
+})
+do.call(cowplot::plot_grid, c(list(nrow = 1, rel_widths = c(2, rep(1, length(ChromVarDeviations_Allplots) - 1))),ChromVarDeviations_Allplots))
 
+plotPDF(ChromVarDeviations_plot, 
+        name = "ChromVar-Groups-Deviations-w-Imputation", width = 8, height = 8, 
+        ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
+# Instead of looking at the distributions of these z-scores, we can overlay the z-scores on our UMAP embedding as we’ve done previously for gene scores.
 
+CV_on_GeneScore <- plotEmbedding(ArchRProj = ATACSeq_project_All5, colorBy = "MotifMatrix", 
+                                 name = sort(markerMotifs), embedding = "UMAP",
+                                 imputeWeights = getImputeWeights(ATACSeq_project_All5))
+## Motif UMAPs
 
+Motif_UMAPs_GeneScore <- lapply(CV_on_GeneScore, function(x){
+  x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+      axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank()
+    )
+})
+do.call(cowplot::plot_grid, c(list(ncol = 3), Motif_UMAPs_GeneScore))
 
-
-
-
+# To see how these TF deviation z-scores compare to the inferred gene expression via gene scores of the corresponding TF genes, we can overlay the gene scores for each of these TFs on the UMAP embedding.
 
