@@ -283,7 +283,7 @@ create_SampleWise_splitAnnotatedUMAP <- function(ATACSeq_project_All5, CellType)
   return(split_AnnotatedUMAP)
 }
 
-# Call the function to create UMAP for each sample
+# Call the function to create UMAP for each Major CellType
 (Enterocyte_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme + ggtitle("Enterocyte_UMAP"))
 (GP_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme + ggtitle("Goblet+Paneth_UMAP"))
 (EEC_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme + ggtitle("EEC_UMAP"))
@@ -294,7 +294,8 @@ plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
         name = "SampleWise_Splitview-CellTypeAnnotatedUMAP.pdf",
         ArchRProj = ATACSeq_project_All5, 
         width = 10,
-        height = 10
+        height = 10,
+        addDOC = FALSE
 )
 #saveplot(plot = Enterocyte_UMAP, plotname = "Enterocyte_UMAP")
 #saveplot(plot = GP_UMAP, plotname = "GP_UMAP")
@@ -302,34 +303,42 @@ plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
 #saveplot(plot = Stem_UMAP, plotname = "Stem_UMAP")
 #saveplot(plot = Tuft_UMAP, plotname = "Tuft_UMAP")
 
-# CellTypeWise
-# create_CellTypeWise_splitAnnotatedUMAP <- function(ATACSeq_project_All5, CellType) {
-#   ct = ATACSeq_project_All5@cellColData@listData$predictedGroup_Un == CellType
-#   ct_split_AnnotatedUMAP <- plotEmbedding(
-#     ArchRProj = ATACSeq_project_All5,
-#     colorBy = "cellColData",
-#     name = "ct", # ATACSeq_project_All5@cellColData@listData$predictedGroup_Un
-#     embedding = "UMAP_all5",
-#     highlightCells = getCellNames(ArchRProj = ATACSeq_project_All5)[which(ATACSeq_project_All5@cellColData@listData$predictedGroup_Un == CellType)],
-#     keepAxis = TRUE,
-#     baseSize = 10,
-#     plotAs = "points"
+
+## Constrained Integration
+
+# Now that we have our preliminary unconstrained integration, we will identify general cell types to profide a framework to further refine the integration results.
+
+# we would ideally constrain the integration to associate similar cell types togther. First, we will identify which cell types from the scRNA-seq data are most abundant in each of our scATAC-seq clusters. 
+cM <- as.matrix(confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments. This list shows which scRNA-seq cell type is most abundant in each of the 12 scATAC-seq clusters.
+
+# lets look at the cell type labels from our scRNA-seq data that were used in our unconstrained integration:
+unique(unique(ATACSeq_project_All5$predictedGroup_Un))
+
+
+# with the results of our scATAC-seq and scRNA-seq integration, we can re-run the integration with 
+# addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
+
+# The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
+# ATACSeq_project_All5 <- ATACSeq_project_All5 %>% 
+#   addGeneIntegrationMatrix(
+#     # ArchRProj = ATACSeq_project_All5,
+#     useMatrix = "GeneScoreMatrix",
+#     matrixName = "GeneIntegrationMatrix",
+#     reducedDims = "IterativeLSI_all5",
+#     seRNA = scRNA_AnnotationData_Johannes,
+#     addToArrow = TRUE,
+#     groupRNA = "int_0.3_broad_tuft",
+#     nameCell = "predictedCell_Un",
+#     nameGroup = "predictedGroup_Un",
+#     nameScore = "predictedScore_Un",
+#     dimsToUse = 1:30,
+#     corCutOff = 0.75,
+#     plotUMAP = TRUE
 #   )
-#   return(ct_split_AnnotatedUMAP)
-# }
-# 
-# # Call the function to create UMAP for each sample
-# (Enterocyte_UMAP1 <- create_CellTypeWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme)
-# (GP_UMAP1 <- create_CellTypeWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme)
-# (EEC_UMAP1 <- create_CellTypeWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme)
-# (Stem_UMAP1 <- create_CellTypeWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Stem") + my_gg_theme)
-# (Tuft_UMAP1 <- create_CellTypeWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Tuft") + my_gg_theme)
-# plotPDF(Enterocyte_UMAP1, GP_UMAP1, EEC_UMAP1, Stem_UMAP1, Tuft_UMAP1,
-#         name = "Plot- SampleWise_Splitview-CellTypeAnnotatedUMAP.pdf",
-#         ArchRProj = ATACSeq_project_All5, 
-#         width = 10,
-#         height = 10
-# ) 
+
+
 ##############################################################################################
 #'                     SECTION7 : Gene Scores and Marker Genes
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -424,8 +433,8 @@ plotPDF(plotList = markerGenes_UMAP_Plot,
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
 # #saveplot(plot = markerGenes_UMAP_Plot, plotname = "markerGenes_UMAP_Plot_withoutImpute")
-# 
-# 
+
+
 # ### Marker Genes with Imputation with MAGIC
 # 
 ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5,
@@ -467,112 +476,233 @@ plotPDF(plotList = markerGenes_UMAP_Plot,
 
 ## All genes UMAP with Imputed objects.
 
-AllGenesList <- as.character(cluster_df$name)
-ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
-
-ImputedmarkerGeneEmbedding_Object <- plotEmbedding(
-  ArchRProj = ATACSeq_project_All5,
- colorBy = "GeneScoreMatrix",
- name = AllGenesList, #mg, #
- embedding = "UMAP_all5",
- quantCut = c(0.01, 0.95),
- imputeWeights = getImputeWeights(ATACSeq_project_All5))
-
-ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
- x + theme_ArchR(baseSize = 6, legendPosition = "right") +
-    theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))
- })
-#
-listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
-                      ncol = 2, nrow = 3,
-                      common.legend = FALSE,
-                      align = "hv")
-
-plotPDF(plotList = listplot,
-        name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
-        ArchRProj = ATACSeq_project_All5,
-        addDOC = FALSE, width = 10, height = 10)
+# AllGenesList <- as.character(cluster_df$name)
+# ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
+# 
+# ImputedmarkerGeneEmbedding_Object <- plotEmbedding(
+#   ArchRProj = ATACSeq_project_All5,
+#  colorBy = "GeneScoreMatrix",
+#  name = AllGenesList, #mg, #
+#  embedding = "UMAP_all5",
+#  quantCut = c(0.01, 0.95),
+#  imputeWeights = getImputeWeights(ATACSeq_project_All5))
+# 
+# ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
+#  x + theme_ArchR(baseSize = 6, legendPosition = "right") })
+# #
+# listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
+#                       ncol = 2, nrow = 3,
+#                       common.legend = FALSE,
+#                       align = "hv")
+# 
+# plotPDF(plotList = listplot,
+#         name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
+#         ArchRProj = ATACSeq_project_All5,
+#         addDOC = FALSE, width = 10, height = 10)
 
 # Track Plotting
 (Trackplotter = plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
                                  groupBy = "Clusters_all5",
                                  geneSymbol = mg,
-                                 upstream = 50000, downstream = 50000))
+                                 upstream = 5000, downstream = 5000))
 plotPDF(plotList = Trackplotter,
         name = "TracksPlot-Marker-Genes.pdf",  
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
 
-## Calling Peaks
+# PseudoBulk Replicates in ArchR
 
-# First we have to define pseudo-bulk replicates to call peaks on them, ArchR merges cells within each designated cell group. 
 ## Defining pseudo-bulk replicates
-ATACSeq_project_All5 <- addGroupCoverages(ArchRProj = ATACSeq_project_All5,
-                                          groupBy = "Clusters_all5",
-                                          force = TRUE
-                                          )
+# First we have to define pseudo-bulk replicates to call peaks on them, ArchR merges cells within each designated cell group. The key parameter here is groupBy which defines the groups for which pseudo-bulk replicates should be made.
+ATACSeq_project_All5 <- addGroupCoverages(ArchRProj = ATACSeq_project_All5, 
+                                          groupBy = "Clusters_all5", force = TRUE)
+
+# Calling Peaks
+
+# One of the Most important bits of scATACseq Analysis. Because per-cell scATAC-seq data is essentially binary (accessible or not accessible), we cannot call peaks on an individual cell basis. For this reason, we defined groups of cells, typically clusters. Moreover, we created pseudo-bulk replicates to allow us to assess the reproducibility of our peak calls.
 
 ## Calling Peaks with MACS2 via Peak Matrix
 
-pathToMacs2 <- findMacs2()#findMacs2()#
+pathToMacs2 <- findMacs2()#
 ATACSeq_project_All5 <- addReproduciblePeakSet(ArchRProj = ATACSeq_project_All5,
                                                groupBy = "Clusters_all5",
+                                               peaksPerCell = 500, # To avoid bias from pseudo-bulk replicates with very few cells, provide a cutoff for the upper limit of the number of peaks called per cell via the peaksPerCell parameter.
                                                pathToMacs2 = pathToMacs2)
+PeakSet <- getPeakSet(ATACSeq_project_All5)
 ATACSeq_project_All5 <- addPeakMatrix(ATACSeq_project_All5)
 
 ## Calling Peaks with ArchR Native Peak Caller via TileMatrix.
-ATACSeq_project_All5 <- addReproduciblePeakSet(
-  ArchRProj = ATACSeq_project_All5, 
-  groupBy = "Clusters_all5",
-  peakMethod = "Tiles",
-  method = "p"
-)
-getPeakSet(ATACSeq_project_All5)
+# ATACSeq_project_All5 <- addReproduciblePeakSet(
+#   ArchRProj = ATACSeq_project_All5, 
+#   groupBy = "Clusters_all5",
+#   peakMethod = "Tiles",
+#   method = "p"
+# )
+# getPeakSet(ATACSeq_project_All5)
 
-#  Identifying Marker Peaks with ArchR
-
-markersPeaks <- getMarkerFeatures(
-  ArchRProj = ATACSeq_project_All5, 
-  useMatrix = "PeakMatrix", 
-  groupBy = "Clusters_all5",
-  bias = c("TSSEnrichment", "log10(nFrags)"),
-  testMethod = "wilcoxon"
-)
-
-# # save Project after track plots
+# # save Project after Peak Calling
 saveArchRProject(
   ArchRProj = ATACSeq_project_All5,
-  outputDirectory = "/home/horneflablinux/postTrackplotsProject/",
+  outputDirectory = "/home/horneflablinux/postpeakcalling/",
   overwrite = TRUE,
   load = TRUE,
-  logFile = createLogFile("saveArchRProject_All5_postTrackProject")
+  logFile = createLogFile("saveArchRProject_All5_postpeakcalling")
 )
 
 
 #  Identifying Marker Peaks with ArchR
-
+# Marker features are unique to a specific cell grouping. These can be very useful in understanding cluster- or cell type-specific biology.
+# we are interested to know which peaks are unique to an individual cluster or a small group of clusters. We can do this in an unsupervised fashion in ArchR using the addMarkerFeatures() function in combination with useMatrix = "PeakMatrix". 
 markersPeaks <- getMarkerFeatures(
   ArchRProj = ATACSeq_project_All5, 
   useMatrix = "PeakMatrix", 
   groupBy = "Clusters_all5",
-  bias = c("TSSEnrichment", "log10(nFrags)"),
+  bias = c("TSSEnrichment", "log10(nFrags)"),# to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
   testMethod = "wilcoxon"
 )
 
-markersPeaks
+print(markersPeaks)
+## retrieve particular slices of this SummarizedExperiment that we are interested in. The default behavior of this function is to return a list of DataFrame objects, one for each cell group.
+markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", returnGR = TRUE)
+print(markerList)
 
-markerList <- getMarkers(markersPeaks, 
-                         cutOff = "FDR <= 0.01 & Log2FC >= 1", 
-                         returnGR = TRUE)
-markerList
-
-heatmapPeaks <- markerHeatmap(
-  seMarker = markersPeaks, 
-  cutOff = "FDR <= 0.1 & Log2FC >= 0.5",
-  transpose = TRUE
-)
-
+# Plotting Marker Peaks 
+heatmapPeaks <- markerHeatmap(seMarker = markersPeaks,cutOff = "FDR <= 0.1 & Log2FC >= 0.5", 
+                              transpose = TRUE)
 draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot") 
-
-plotPDF(heatmapPeaks, name = "Peak-Marker-Heatmap", width = 8, height = 6, 
+plotPDF(heatmapPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+
+## Volcano Plots for Marker Peaks
+
+MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "Erythroid", 
+                                     cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
+plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, height = 8, 
+        ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+
+## Marker Peaks in Browser Tracks
+# visualise peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameterin the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot.
+
+MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, 
+                                         groupBy = "Clusters2", 
+                                         geneSymbol = mg,
+                                         features =  getMarkers(markersPeaks, 
+                                                                cutOff = "FDR <= 0.1 & Log2FC >= 1", 
+                                                                returnGR = TRUE)["Erythroid"],
+                                         upstream = 5000, 
+                                         downstream = 5000)
+
+grid::grid.newpage()
+grid::grid.draw(MarkerPeak_TrackPlot$Lct)
+plotPDF(MarkerPeak_TrackPlot, name = "MarkerPeak_TrackPlot-Tracks-With-Features", 
+        width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+
+
+# Motif and Feature Enrichment
+# to predict what transcription factors may be mediating the binding events that create those accessible chromatin sites. This can be helpful in assessing marker peaks or differential peaks to understand if these groups of peaks are enriched for binding sites of specific transcription factors. 
+
+
+# look for motifs that are enriched in peaks that are up or down in various cell types. To do this, we must first add these motif annotations to our ArchRProject. This effectively creates a binary matrix where the presence of a motif in each peak is indicated numerically.
+
+ATACSeq_project_All5 <- addMotifAnnotations(ArchRProj = ATACSeq_project_All5, motifSet = "cisbp", name = "Motif")
+
+## Motif Enrichment in Differential Peaks
+motifsUp <- peakAnnoEnrichment(seMarker = markerTest, # use the differential testing SummarizedExperiment object markerTest which was generated in the previous chapter to define the set of significantly differential peaks that we are interested in testing for motif enrichment.
+                               ArchRProj = ATACSeq_project_All5, 
+                               peakAnnotation = "Motif", 
+                               cutOff = "FDR <= 0.1 & Log2FC >= 0.5")
+print(motifsUp) # is a SummarizedExperiment object containing multiple assays that store the results of enrichment testing with the hypergeometric test.
+
+# Prepare this data for plotting with ggplot we can create a simplified data.frame object containing the motif names, the corrected p-values, and the significance rank.
+df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+df$rank <- seq_len(nrow(df))
+
+head(df)
+
+# plot the rank-sorted TF motifs and color them by the significance of their enrichment. 
+ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+    data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+    size = 1.5,
+    nudge_x = 2,
+    color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(P-adj) Motif Enrichment") + 
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+plotPDF(ggUp, name = "ggUp-Motifs-Enriched", width = 8, height = 8, ArchRProj = ATACSeq_project_All5,
+        addDOC = FALSE)
+
+# We can perform the same analyses for the peaks that are more accessible in the “Progenitor” cells by using peaks with Log2FC <= -0.5.
+
+motifsDo <- peakAnnoEnrichment(seMarker = markerTest, ArchRProj = ATACSeq_project_All5,
+  peakAnnotation = "Motif", cutOff = "FDR <= 0.1 & Log2FC <= -0.5")
+print(motifsDo)
+
+df_DO <- data.frame(TF = rownames(motifsDo), mlog10Padj = assay(motifsDo)[,1])
+df_DO <- df[order(df_DO$mlog10Padj, decreasing = TRUE),]
+df_DO$rank <- seq_len(nrow(df_DO))
+head(df_DO)
+
+ggDo <- ggplot(df_DO, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_label_repel(
+    data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = TF), 
+    size = 1.5,
+    nudge_x = 2,
+    color = "black"
+  ) + theme_ArchR() + 
+  ylab("-log10(FDR) Motif Enrichment") +
+  xlab("Rank Sorted TFs Enriched") +
+  scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+
+plotPDF(ggDo, name = "ggDo-Motifs-Enriched", width = 8, height = 8, ArchRProj = ATACSeq_project_All5,
+        addDOC = FALSE)
+
+## Motif Enrichment in Marker Peaks
+enrichMotifs_MarkerPeaks <- peakAnnoEnrichment(seMarker = markersPeaks, ArchRProj = ATACSeq_project_All5,
+                                   peakAnnotation = "Motif", cutOff = "FDR <= 0.1 & Log2FC >= 0.5")
+
+print(enrichMotifs_MarkerPeaks)
+# Plot this enrich Motifs directly as a Heatmap
+heatmap_enrichMotifs_MarkerPeaks <- plotEnrichHeatmap(enrichMotifs, n = 7, transpose = TRUE)
+ComplexHeatmap::draw(heatmap_enrichMotifs_MarkerPeaks, heatmap_legend_side = "bot", 
+                     annotation_legend_side = "bot")
+
+plotPDF(heatmap_enrichMotifs_MarkerPeaks, name = "EnrichMotifs_MarkerPeaks-Heatmap", 
+        width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+
+
+# ChromVar Deviations Enrichment
+# TF motif enrichments can help us predict which regulatory factors are most active in our cell type of interest. These enrichments, however, are not calculated on a per-cell basis and they do not take into account the insertion sequence bias of the Tn5 transposase.
+
+# ChromVAR is designed for predicting enrichment of TF activity on a per-cell basis from sparse chromatin accessibility data. The two primary outputs of chromVAR are: "Deviations" and "Zscore/DeviationScore".
+
+# check if the motifs are added to teh respective ArchR Project
+if("Motif" %ni% names(ATACSeq_project_All5@peakAnnotation)){
+  ATACSeq_project_All5 <- addMotifAnnotations(ArchRProj = ATACSeq_project_All5, motifSet = "cisbp", name = "Motif")}
+
+# add a set of background peaks which are used in computing deviations. Background peaks are chosen using the chromVAR::getBackgroundPeaks() function which samples peaks based on similarity in GC-content and number of fragments across all samples using the Mahalanobis distance.
+ATACSeq_project_All5 <- addBgdPeaks(ATACSeq_project_All5)
+
+# now ready to compute per-cell deviations accross all of our motif annotations using the addDeviationsMatrix() function. 
+ATACSeq_project_All5 <- addDeviationsMatrix(ArchRProj = ATACSeq_project_All5, 
+                                            peakAnnotation = "Motif", force = TRUE)
+# To access these deviations, we use the getVarDeviations() function. If we want this function to return a ggplot object, we set plot = TRUE. 
+plotVarDev <- getVarDeviations(projHeme5, name = "MotifMatrix", plot = TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
