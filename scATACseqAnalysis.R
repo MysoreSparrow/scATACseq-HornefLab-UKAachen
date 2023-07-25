@@ -303,7 +303,6 @@ plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
 #saveplot(plot = Stem_UMAP, plotname = "Stem_UMAP")
 #saveplot(plot = Tuft_UMAP, plotname = "Tuft_UMAP")
 
-
 ## Constrained Integration
 
 # Now that we have our preliminary unconstrained integration, we will identify general cell types to profide a framework to further refine the integration results.
@@ -321,24 +320,53 @@ unique(unique(ATACSeq_project_All5$predictedGroup_Un))
 # addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
 
 # The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
-# ATACSeq_project_All5 <- ATACSeq_project_All5 %>% 
-#   addGeneIntegrationMatrix(
-#     # ArchRProj = ATACSeq_project_All5,
-#     useMatrix = "GeneScoreMatrix",
-#     matrixName = "GeneIntegrationMatrix",
-#     reducedDims = "IterativeLSI_all5",
-#     seRNA = scRNA_AnnotationData_Johannes,
-#     addToArrow = TRUE,
-#     groupRNA = "int_0.3_broad_tuft",
-#     nameCell = "predictedCell_Un",
-#     nameGroup = "predictedGroup_Un",
-#     nameScore = "predictedScore_Un",
-#     dimsToUse = 1:30,
-#     corCutOff = 0.75,
-#     plotUMAP = TRUE
-#   )
+ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
+  addGeneIntegrationMatrix(
+    # ArchRProj = ATACSeq_project_All5,
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI_all5",
+    seRNA = scRNA_AnnotationData_Johannes,
+    addToArrow = TRUE,
+    groupRNA = "int_0.3_broad_tuft",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un",
+    dimsToUse = 1:30,
+    corCutOff = 0.75,
+    plotUMAP = TRUE,
+    force = TRUE
+  )
 
+## Labeling scATAC-seq clusters with scRNA-seq information
+cM <- confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un)
+labelOld <- rownames(cM)
+print(labelOld)
+# for each of our scATAC-seq clusters, we identify the cell type from predictedGroup which best defines that cluster
+labelNew <- colnames(cM)[apply(cM, 1, which.max)]
+print(labelNew)
 
+# Next we need to reclassify these new cluster labels to make a simpler categorization system. For each scRNA-seq cluster
+remapClust <- c(
+  "Enterocyte" = "Aline/Enterocyte",
+  "Tuft" = "Kaiyi/Tuft",
+  "Stem" = "Matthias/Stem",
+  "Goblet+Paneth" = "Fabian/Goblet+Paneth",
+  "EEC" = "Annalena/EEC"
+)
+remapClust <- remapClust[names(remapClust) %in% labelNew]
+labelNew2 <- mapLabels(labelNew, oldLabels = names(remapClust), newLabels = remapClust)
+labelNew2
+# use the mapLabels() function again to create new cluster labels in cellColData.
+ATACSeq_project_All5$Clusters2 <- mapLabels(ATACSeq_project_All5$Clusters_all5, 
+                                            newLabels = labelNew2, 
+                                            oldLabels = labelOld)
+Renamed_UMAP <- plotEmbedding(ATACSeq_project_All5, 
+                              colorBy = "cellColData", 
+                              embedding = "ClustersUMAP_all5",
+                              name = "Clusters2")
+plotPDF(Renamed_UMAP, name = "Renamed_UMAP-Clusters.pdf", ArchRProj = ATACSeq_project_All5, 
+        addDOC = FALSE, width = 8, height = 8)
 ##############################################################################################
 #'                     SECTION7 : Gene Scores and Marker Genes
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -549,7 +577,7 @@ saveArchRProject(
   logFile = createLogFile("saveArchRProject_All5_postpeakcalling")
 )
 
-library(magick)
+# library(magick)
 #  Identifying Marker Peaks with ArchR
 # Marker features are unique to a specific cell grouping. These can be very useful in understanding cluster- or cell type-specific biology.
 # we are interested to know which peaks are unique to an individual cluster or a small group of clusters. We can do this in an unsupervised fashion in ArchR using the addMarkerFeatures() function in combination with useMatrix = "PeakMatrix". 
@@ -564,13 +592,18 @@ markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", ret
 print(markerList)
 
 # Plotting Marker Peaks 
-heatmapPeaks <- markerHeatmap(seMarker = markersPeaks,
+heatmap_MarkerPeaks <- plotMarkerHeatmap(seMarker = markersPeaks,
                               cutOff = "FDR <= 0.1 & Log2FC >= 0.5", 
+                              plotLog2FC = FALSE,
+                              limits = c(-2, 2),
+                              nLabel = 15,
+                              nPrint = 15,
                               transpose = TRUE)
-ComplexHeatmap::draw(heatmapPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
-plotPDF(heatmapPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
+library(ComplexHeatmap)
+ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+plotPDF(heatmap_MarkerPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-# heatmapPeaks
+# heatmap_MarkerPeaks
 ## Volcano Plots for Marker Peaks
 MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C5", 
                                      cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
