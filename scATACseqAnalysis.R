@@ -604,8 +604,10 @@ ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotatio
 plotPDF(heatmap_MarkerPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 # heatmap_MarkerPeaks
+
+
 ## Volcano Plots for Marker Peaks
-MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C5", 
+MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "Clusters2", 
                                      cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
 plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
@@ -618,7 +620,7 @@ MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
                                          geneSymbol = mg,
                                          features =  getMarkers(markersPeaks, 
                                                                 cutOff = "FDR <= 0.1 & Log2FC >= 1", 
-                                                                returnGR = TRUE)["Clusters_all5"],
+                                                                returnGR = TRUE)["Clusters2"],
                                          upstream = 5000, 
                                          downstream = 5000)
 
@@ -627,6 +629,17 @@ grid::grid.draw(MarkerPeak_TrackPlot$Lct)
 plotPDF(MarkerPeak_TrackPlot, name = "MarkerPeak_TrackPlot-Tracks-With-Features", 
         width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
+
+# Pairwise Testing Between Groups
+
+markerTest <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "PeakMatrix",
+                                groupBy = "Clusters2", testMethod = "wilcoxon", 
+                                bias = c("TSSEnrichment", "log10(nFrags)"), 
+                                useGroups = "Matthias/Stem", bgdGroups = "Aline/Enterocyte")
+markerTest_volcanoPlot <- markerPlot(seMarker = markerTest, name = "Matthias/Stem", 
+                                     cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "Volcano")
+plotPDF(markerTest_volcanoPlot, name = "Matthias/Stem-vs-Aline/Enterocyte-Markers-VolcanoPlot", 
+        width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
 # Motif and Feature Enrichment
 # to predict what transcription factors may be mediating the binding events that create those accessible chromatin sites. This can be helpful in assessing marker peaks or differential peaks to understand if these groups of peaks are enriched for binding sites of specific transcription factors. 
