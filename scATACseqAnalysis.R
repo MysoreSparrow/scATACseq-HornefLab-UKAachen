@@ -431,7 +431,6 @@ plotPDF(heatmap_MarkerGene,
         name = "GeneScores-Marker-Heatmap",
         width = 10, height = 10,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-saveplot(plot = heatmap_MarkerGene, plotname = heatmap_MarkerGene)
 
 mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 
@@ -587,7 +586,7 @@ heatmap_MarkerPeaks <- plotMarkerHeatmap(seMarker = markersPeaks,
                               nPrint = 15,
                               transpose = TRUE)
 
-ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
+# ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
 plotPDF(heatmap_MarkerPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
@@ -602,18 +601,15 @@ saveplot(plot = MarkerPeak_VolcanoPlot, plotname = "MarkerPeak_VolcanoPlot")
 # visualise peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameterin the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot.
 
 MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, 
-                                         groupBy = "Clusters_all5", 
+                                         groupBy = "Clusters2", 
                                          geneSymbol = mg,
                                          features =  getMarkers(markersPeaks, 
                                                                 cutOff = "FDR <= 0.1 & Log2FC >= 1", 
-                                                                returnGR = TRUE)["Clusters_all5"],
+                                                                returnGR = TRUE)["C1"],
                                          upstream = 5000, 
                                          downstream = 5000)
-grid::grid.newpage()
-grid::grid.draw(MarkerPeak_TrackPlot$Lct)
 plotPDF(MarkerPeak_TrackPlot, name = "MarkerPeak_TrackPlot-Tracks-With-Features", 
         width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-
 
 # Pairwise Testing Between Groups
 markerTest <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "PeakMatrix",
