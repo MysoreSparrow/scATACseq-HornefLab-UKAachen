@@ -251,14 +251,14 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
   )
 
 # Plot UMAP with predicted cell types
-(annotated_UMAP_scRNAseqRef <- plotEmbedding(ATACSeq_project_All5,
+annotated_UMAP_scRNAseqRef <- plotEmbedding(ATACSeq_project_All5,
                                              name = "predictedGroup_Un",
                                              embedding = "UMAP_all5",
                                              baseSize = 15,
                                              plotAs = "points",
                                              size = 0.05,
                                              labelAsFactors = F,
-                                             labelMeans = F))
+                                             labelMeans = F)
 
 plotPDF(annotated_UMAP_scRNAseqRef, 
         name = "CellTypeAnnotatedUMAP_scRNAseqRef_All5",
@@ -375,16 +375,15 @@ saveplot(plot = Renamed_UMAP, plotname = "Renamed_UMAP")
 
 #' ##'            Identifying Marker Genes                               ##
 # Identifying Marker Genes    
-markersGS <- getMarkerFeatures(
-  ArchRProj = ATACSeq_project_All5,
-  useMatrix = "GeneScoreMatrix",
-  groupBy = "Clusters_all5",
-  bias = c("TSSEnrichment", "log10(nFrags)"),
-  testMethod = "wilcoxon"
-)
+markersGS <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5,
+                                useMatrix = "GeneScoreMatrix",
+                                groupBy = "Clusters_all5",
+                                bias = c("TSSEnrichment", "log10(nFrags)"),
+                                testMethod = "wilcoxon"
+                               )
 
 # Markers List
-markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.05 & Log2FC >= 3")
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.05 & Log2FC >= 1")
 # Create an empty list to store dataframes
 df_list <- list()
 
@@ -418,7 +417,7 @@ markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", 
 # markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 # 
 # ### Create Heatmap for Marker Genes
-heatmapGS <- plotMarkerHeatmap(
+heatmap_MarkerGene <- plotMarkerHeatmap(
   seMarker = markersGS,
   cutOff = "FDR <= 0.05 & Log2FC >= 1.0",
   limits = c(-3, 3),
@@ -428,13 +427,14 @@ heatmapGS <- plotMarkerHeatmap(
   transpose = TRUE,
   labelRows = TRUE, clusterCols = TRUE, nPrint = 10)
 
-plotPDF(heatmapGS,
+plotPDF(heatmap_MarkerGene,
         name = "GeneScores-Marker-Heatmap",
         width = 10, height = 10,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-# 
+saveplot(plot = heatmap_MarkerGene, plotname = heatmap_MarkerGene)
+
 mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
-# 
+
 # #            Visualizing Marker Genes 
 markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                              colorBy = "GeneScoreMatrix",
@@ -455,17 +455,13 @@ markerGenes_UMAP_Plot <- lapply(markerGeneEmbedding_Object, function(x){
     axis.ticks.y = element_blank()
   )
 })
-# do.call(cowplot::plot_grid, c(list(ncol = 2), markerGenes_UMAP_Plot))
 
 plotPDF(plotList = markerGenes_UMAP_Plot,
         name = "UMAP-Marker-Genes-Without-Imputation.pdf",
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
-# #saveplot(plot = markerGenes_UMAP_Plot, plotname = "markerGenes_UMAP_Plot_withoutImpute")
-
 
 # ### Marker Genes with Imputation with MAGIC
-# 
 ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5,
                                          reducedDims = "Harmony_all5")
 
@@ -488,7 +484,6 @@ ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, functi
       axis.ticks.y = element_blank()
     )
   })
-# do.call(cowplot::plot_grid, c(list(ncol = 3),ImputedmarkerGenes_UMAP_Plot))
 
 ImputedmarkerGenes_UMAP_listplot_withImputation <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
                                      ncol = 2, nrow = 3, common.legend = FALSE, align = "h")
@@ -497,7 +492,6 @@ plotPDF(plotList = ImputedmarkerGenes_UMAP_listplot_withImputation,
         name = "Marker-Genes-UMAP-With-Imputation.pdf",
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
-
 ## All genes UMAP with Imputed objects.
 
 AllGenesList <- as.character(cluster_df$name)
@@ -543,7 +537,6 @@ ATACSeq_project_All5 <- addGroupCoverages(ArchRProj = ATACSeq_project_All5,
 # One of the Most important bits of scATACseq Analysis. Because per-cell scATAC-seq data is essentially binary (accessible or not accessible), we cannot call peaks on an individual cell basis. For this reason, we defined groups of cells, typically clusters. Moreover, we created pseudo-bulk replicates to allow us to assess the reproducibility of our peak calls.
 
 ## Calling Peaks with MACS2 via Peak Matrix
-
 pathToMacs2 <- findMacs2()#
 ATACSeq_project_All5 <- addReproduciblePeakSet(ArchRProj = ATACSeq_project_All5,
                                                groupBy = "Clusters_all5",
@@ -571,13 +564,15 @@ saveArchRProject(
 )
 
 #  Identifying Marker Peaks with ArchR
+
 # Marker features are unique to a specific cell grouping. These can be very useful in understanding cluster- or cell type-specific biology.
 # we are interested to know which peaks are unique to an individual cluster or a small group of clusters. We can do this in an unsupervised fashion in ArchR using the addMarkerFeatures() function in combination with useMatrix = "PeakMatrix". 
-markersPeaks <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "PeakMatrix", 
-  groupBy = "Clusters_all5", bias = c("TSSEnrichment", "log10(nFrags)"),# to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
-  testMethod = "wilcoxon"
+markersPeaks <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, 
+                                  useMatrix = "PeakMatrix", 
+                                  groupBy = "Clusters_all5", 
+                                  testMethod = "wilcoxon",
+                                  bias = c("TSSEnrichment", "log10(nFrags)")# to account for differences in data quality amongst the cell groups by setting the bias parameter to account for TSS enrichment and the number of unique fragments per cell.
 )
-
 print(markersPeaks)
 ## retrieve particular slices of this SummarizedExperiment that we are interested in. The default behavior of this function is to return a list of DataFrame objects, one for each cell group.
 markerList <- getMarkers(markersPeaks, cutOff = "FDR <= 0.01 & Log2FC >= 1", returnGR = TRUE)
@@ -595,11 +590,9 @@ heatmap_MarkerPeaks <- plotMarkerHeatmap(seMarker = markersPeaks,
 ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
 plotPDF(heatmap_MarkerPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-saveplot(plot = heatmap_MarkerPeaks, plotname = "heatmap_MarkerPeaks")
-
 
 ## Volcano Plots for Marker Peaks
-MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C15", 
+MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C1", 
                                      cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
 plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
@@ -616,7 +609,6 @@ MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
                                                                 returnGR = TRUE)["Clusters_all5"],
                                          upstream = 5000, 
                                          downstream = 5000)
-
 grid::grid.newpage()
 grid::grid.draw(MarkerPeak_TrackPlot$Lct)
 plotPDF(MarkerPeak_TrackPlot, name = "MarkerPeak_TrackPlot-Tracks-With-Features", 
@@ -624,7 +616,6 @@ plotPDF(MarkerPeak_TrackPlot, name = "MarkerPeak_TrackPlot-Tracks-With-Features"
 
 
 # Pairwise Testing Between Groups
-
 markerTest <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "PeakMatrix",
                                 groupBy = "Clusters2", testMethod = "wilcoxon", 
                                 bias = c("TSSEnrichment", "log10(nFrags)"), 
@@ -633,13 +624,13 @@ markerTest_volcanoPlot <- markerPlot(seMarker = markerTest, name = "Matthias/Ste
                                      cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "Volcano")
 plotPDF(markerTest_volcanoPlot, name = "Matthias_Stem-vs-Aline_Enterocyte-Markers-VolcanoPlot", 
         width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+saveplot(plot = markerTest_volcanoPlot, plotname = "PairWisemarkerTest_volcanoPlot")
 
 # Motif and Feature Enrichment
+
 # to predict what transcription factors may be mediating the binding events that create those accessible chromatin sites. This can be helpful in assessing marker peaks or differential peaks to understand if these groups of peaks are enriched for binding sites of specific transcription factors. 
 
-
 # look for motifs that are enriched in peaks that are up or down in various cell types. To do this, we must first add these motif annotations to our ArchRProject. This effectively creates a binary matrix where the presence of a motif in each peak is indicated numerically.
-
 ATACSeq_project_All5 <- addMotifAnnotations(ArchRProj = ATACSeq_project_All5, motifSet = "cisbp", name = "Motif")
 
 ## Motif Enrichment in Differential Peaks
@@ -653,7 +644,6 @@ print(motifsUp) # is a SummarizedExperiment object containing multiple assays th
 df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
 df <- df[order(df$mlog10Padj, decreasing = TRUE),]
 df$rank <- seq_len(nrow(df))
-
 head(df)
 
 # plot the rank-sorted TF motifs and color them by the significance of their enrichment. 
@@ -671,6 +661,7 @@ ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) +
 
 plotPDF(ggUp, name = "ggUp-Motifs-Enriched", width = 8, height = 8, ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE)
+saveplot(plot = ggUp, plotname = "ggUp-Motifs-Enriched")
 
 # We can perform the same analyses for the peaks that are more accessible in the “Progenitor” cells by using peaks with Log2FC <= -0.5.
 
@@ -697,12 +688,13 @@ ggDo <- ggplot(df_DO, aes(rank, mlog10Padj, color = mlog10Padj)) +
 
 plotPDF(ggDo, name = "ggDo-Motifs-Enriched", width = 8, height = 8, ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE)
+saveplot(plot = ggDo, plotname = "ggDo-Motifs-Enriched")
 
 ## Motif Enrichment in Marker Peaks
 enrichMotifs_MarkerPeaks <- peakAnnoEnrichment(seMarker = markersPeaks, ArchRProj = ATACSeq_project_All5,
                                    peakAnnotation = "Motif", cutOff = "FDR <= 0.1 & Log2FC >= 0.5")
-
 print(enrichMotifs_MarkerPeaks)
+
 # Plot this enrich Motifs directly as a Heatmap
 heatmap_enrichMotifs_MarkerPeaks <- plotEnrichHeatmap(enrichMotifs_MarkerPeaks, n = 7, transpose = TRUE)
 ComplexHeatmap::draw(heatmap_enrichMotifs_MarkerPeaks, heatmap_legend_side = "bot", 
@@ -710,7 +702,6 @@ ComplexHeatmap::draw(heatmap_enrichMotifs_MarkerPeaks, heatmap_legend_side = "bo
 
 plotPDF(heatmap_enrichMotifs_MarkerPeaks, name = "EnrichMotifs_MarkerPeaks-Heatmap", 
         width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-
 
 # ChromVar Deviations Enrichment
 # TF motif enrichments can help us predict which regulatory factors are most active in our cell type of interest. These enrichments, however, are not calculated on a per-cell basis and they do not take into account the insertion sequence bias of the Tn5 transposase.
@@ -727,10 +718,12 @@ ATACSeq_project_All5 <- addBgdPeaks(ATACSeq_project_All5)
 # now ready to compute per-cell deviations accross all of our motif annotations using the addDeviationsMatrix() function. 
 ATACSeq_project_All5 <- addDeviationsMatrix(ArchRProj = ATACSeq_project_All5, 
                                             peakAnnotation = "Motif", force = TRUE)
+
 # To access these deviations, we use the getVarDeviations() function. If we want this function to return a ggplot object, we set plot = TRUE. 
 plotVarDev <- getVarDeviations(ATACSeq_project_All5, name = "MotifMatrix", plot = TRUE)
 plotPDF(plotVarDev, name = "Variable-Motif-Deviation-Scores", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+saveplot(plot = plotVarDev, "Variable-Motif-Deviation-Scores")
 
 # Extract Subset of Motives
 motifs <- mg 
@@ -738,9 +731,9 @@ markerMotifs <- getFeatures(ATACSeq_project_All5,
                             select = paste(motifs, collapse="|"), useMatrix = "MotifMatrix")
 print(markerMotifs)
 
-# markerMotifs <- grep("z:", markerMotifs, value = TRUE)
+markerMotifs <- grep("z:", markerMotifs, value = TRUE)
 # markerMotifs <- markerMotifs[markerMotifs %ni% "z:SREBF1_22"]
-# markerMotifs
+markerMotifs
 
 ###' plot the distribution of chromVAR deviation scores for each cluster.
 ChromVarDeviations_plot <- plotGroups(ArchRProj = ATACSeq_project_All5, 
@@ -769,8 +762,6 @@ ChromVarDeviations_Allplots <- lapply(seq_along(p), function(x){
       ) + ylab("")
   }
 })
-# do.call(cowplot::plot_grid, 
-#         c(list(nrow = 1, rel_widths = c(2, rep(1, length(ChromVarDeviations_Allplots) - 1))),  ChromVarDeviations_Allplots))
 
 plotPDF(ChromVarDeviations_plot, 
         name = "ChromVar-Groups-Deviations-w-Imputation", width = 8, height = 8, 
@@ -794,7 +785,6 @@ Motif_UMAPs_GeneScore <- lapply(CV_on_GeneScore, function(x){
       axis.ticks.y=element_blank()
     )
 })
-do.call(cowplot::plot_grid, c(list(ncol = 3), Motif_UMAPs_GeneScore))
 
 # To see how these TF deviation z-scores compare to the inferred gene expression via gene scores of the corresponding TF genes, we can overlay the gene scores for each of these TFs on the UMAP embedding.
 markerRNA_TFDeviation <- getFeatures(ATACSeq_project_All5, select = paste(motifs, collapse="|"), 
@@ -815,7 +805,7 @@ markerRNA_TFDeviation_UMAP_All <- lapply(markerRNA_TFDeviation_UMAP, function(x)
       axis.ticks.y=element_blank()
     )
 })
-do.call(cowplot::plot_grid, c(list(ncol = 3),markerRNA_TFDeviation_UMAP_All))
+
 markerRNA_TFDeviation_UMAP_All_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot, 
                                                      ncol = 3, nrow = 3, common.legend = TRUE, 
                                                      align = "hv")
@@ -824,7 +814,25 @@ plotPDF(markerRNA_TFDeviation_UMAP_All_listplot,
         name = "ChromVar-Groups-Deviations-w-Imputation", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
+###################13.1 ArchR incomplete#################################
 
+########MOTIF FOOTPRINTING##################
+
+# obtain the positions of the relevant motifs.
+motifpositions <- getPositions(ATACSeq_project_All5) # This creates a GRangesList object where each TF motif is represented by a separate GRanges object.
+print(motifpositions)
+# subset this GRangesList to a few TF motifs that we are interested in. To accurately profile TF footprints, a large number of reads are required. Therefore, cells are grouped to create pseudo-bulk ATAC-seq profiles that can be then used for TF footprinting. These pseudo-bulk profiles are stored as group coverage files which we originally created in a previous chapter to perform peak calling.
+
+ATACSeq_project_All5 <- addGroupCoverages(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2")
+
+# now compute footprints for the subset of marker motifs that we previously selected using the getFootprints() function
+seFoot <- getFootprints(ArchRProj = ATACSeq_project_All5, positions = motifPositions, groupBy = "Clusters2")
+
+# Once we have retrieved these footprints, we can plot them using the plotFootprints() function. This function can simultaneously normalize the footprints in various ways. 
+
+# Normalization of Footprints for Tn5 Bias
+# One major challenge with TF footprinting using ATAC-seq data is the insertion sequence bias of the Tn5 transposase which can lead to misclassification of TF footprints. To account for Tn5 insertion bias, ArchR identifies the k-mer (user-defined length, default length 6) sequences surrounding each Tn5 insertion site.
+# Strategy1: 
 
 
 
