@@ -931,6 +931,73 @@ plotPDF(plotList = Peak2GeneLinkage_BrowserTrack,
 # Heatmap of peak2Gene Links
 Heatmap_peak2Gene <- plotPeak2GeneHeatmap(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2")
 
+################################## Identification of Positive TF-Regulators #################################
+# Step 1. Identify Deviant TF Motifs
+seGroupMotif <- getGroupSE(ArchRProj = ATACSeq_project_All5, useMatrix = "MotifMatrix", groupBy = "Clusters2")
+# this SummarizedExperiment object comes from the MotifMatrix is has two seqnames - “deviations” and “z” - corresponding to the raw deviations and deviation z-scores from chromVAR.
+
+# subset this SummarizedExperiment to just the deviation z-scores.
+seZ <- seGroupMotif[rowData(seGroupMotif)$seqnames=="z",]
+# identify the maximum delta in z-score between all clusters. This will be helpful in stratifying motifs based on the degree of variation observed across clusters.
+rowData(seZ)$maxDelta <- lapply(seq_len(ncol(seZ)), function(x){rowMaxs(assay(seZ) - assay(seZ)[,x])}) %>% 
+  Reduce("cbind", .) %>% rowMaxs
+
+# Step 2. Identify Correlated TF Motifs and TF Gene Score/Expression
+
+# To identify TFs whose motif accessibility is correlated with with their own gene activity (either by gene score or gene expression), we use the correlateMatrices() function and provide the two matrices that we are interested in, in this case the GeneScoreMatrix and the MotifMatrix. As mentioned previously, these correlations are determined across many low-overlapping cell aggregates determined in the lower dimension space specified in the reducedDims parameter.
+corGSM_MM <- correlateMatrices(ArchRProj = ATACSeq_project_All5, useMatrix1 = "GeneScoreMatrix", 
+                               useMatrix2 = "MotifMatrix", reducedDims = "IterativeLSI_all5")
+# perform the same analysis using the GeneIntegrationMatrix instead of the GeneScoreMatrix.
+corGSM_MM <- correlateMatrices(ArchRProj = ATACSeq_project_All5, useMatrix1 = "GeneIntegrationMatrix", 
+                               useMatrix2 = "MotifMatrix", reducedDims = "IterativeLSI_all5")
+# Step 3. Add Maximum Delta Deviation to the Correlation Data Frame
+corGSM_MM$maxDelta <- rowData(seZ)[match(corGSM_MM$MotifMatrix_name, rowData(seZ)$name), "maxDelta"]
+corGIM_MM$maxDelta <- rowData(seZ)[match(corGIM_MM$MotifMatrix_name, rowData(seZ)$name), "maxDelta"]
+# Step 4. Identify Positive TF Regulators
+# we consider positive regulators as those TFs whose correlation between motif and gene score (or gene expression) is greater than 0.5 with an adjusted p-value less than 0.01 and a maximum inter-cluster difference in deviation z-score that is in the top quartile. We apply these selection criteria and do a little text juggling to isolate the TF names.
+corGSM_MM <- corGSM_MM[order(abs(corGSM_MM$cor), decreasing = TRUE), ]
+corGSM_MM <- corGSM_MM[which(!duplicated(gsub("\\-.*","",corGSM_MM[,"MotifMatrix_name"]))), ]
+corGSM_MM$TFRegulator <- "NO"
+corGSM_MM$TFRegulator[which(corGSM_MM$cor > 0.5 & corGSM_MM$padj < 0.01 & corGSM_MM$maxDelta > quantile(corGSM_MM$maxDelta, 0.75))] <- "YES"
+sort(corGSM_MM[corGSM_MM$TFRegulator=="YES",1])
+
+# Step5. Plotting
+# Having identified these positive TF regulators from gene scores and motif deviation z-scores, we can highlight them in a dot plot.
+PositiveTFRegulator_basedonGSM <- ggplot(data.frame(corGSM_MM), aes(cor, maxDelta, color = TFRegulator)) +
+  geom_point() + 
+  theme_ArchR() +
+  geom_vline(xintercept = 0, lty = "dashed") + 
+  scale_color_manual(values = c("NO"="darkgrey", "YES"="firebrick3")) +
+  xlab("Correlation To Gene Score") +
+  ylab("Max TF Motif Delta") +
+  scale_y_continuous(
+    expand = c(0,0), 
+    limits = c(0, max(corGSM_MM$maxDelta)*1.05)
+  )
+
+# Same Analysis based on Gene Integration Matrix
+corGIM_MM <- corGIM_MM[order(abs(corGIM_MM$cor), decreasing = TRUE), ]
+corGIM_MM <- corGIM_MM[which(!duplicated(gsub("\\-.*","",corGIM_MM[,"MotifMatrix_name"]))), ]
+corGIM_MM$TFRegulator <- "NO"
+corGIM_MM$TFRegulator[which(corGIM_MM$cor > 0.5 & corGIM_MM$padj < 0.01 & corGIM_MM$maxDelta > quantile(corGIM_MM$maxDelta, 0.75))] <- "YES"
+sort(corGIM_MM[corGIM_MM$TFRegulator=="YES",1])
+
+PositiveTFRegulator_basedonGIM <- ggplot(data.frame(corGIM_MM), aes(cor, maxDelta, color = TFRegulator)) +
+  geom_point() + 
+  theme_ArchR() +
+  geom_vline(xintercept = 0, lty = "dashed") + 
+  scale_color_manual(values = c("NO"="darkgrey", "YES"="firebrick3")) +
+  xlab("Correlation To Gene Expression") +
+  ylab("Max TF Motif Delta") +
+  scale_y_continuous(
+    expand = c(0,0), 
+    limits = c(0, max(corGIM_MM$maxDelta)*1.05)
+  )
+
+
+
+
+
 
 
 
