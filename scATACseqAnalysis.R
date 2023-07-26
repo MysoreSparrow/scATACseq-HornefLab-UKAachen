@@ -826,13 +826,111 @@ print(motifpositions)
 ATACSeq_project_All5 <- addGroupCoverages(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2")
 
 # now compute footprints for the subset of marker motifs that we previously selected using the getFootprints() function
-seFoot <- getFootprints(ArchRProj = ATACSeq_project_All5, positions = motifPositions, groupBy = "Clusters2")
+seFoot <- getFootprints(ArchRProj = ATACSeq_project_All5, positions = motifpositions, 
+                        groupBy = "Clusters2")
 
 # Once we have retrieved these footprints, we can plot them using the plotFootprints() function. This function can simultaneously normalize the footprints in various ways. 
 
 # Normalization of Footprints for Tn5 Bias
 # One major challenge with TF footprinting using ATAC-seq data is the insertion sequence bias of the Tn5 transposase which can lead to misclassification of TF footprints. To account for Tn5 insertion bias, ArchR identifies the k-mer (user-defined length, default length 6) sequences surrounding each Tn5 insertion site.
-# Strategy1: 
+
+
+# Strategy1: Subtracting the Tn5 Bias
+TF_footprintg_S1 <- plotFootprints(
+  seFoot = seFoot,
+  ArchRProj = ATACSeq_project_All5, 
+  normMethod = "Subtract",
+  plotName = "Footprints-Subtract-Bias",
+  addDOC = FALSE,
+  smoothWindow = 5
+)
+
+# Strategy2: Dividing by the Tn5 Bias
+TF_footprintg_S2 <-plotFootprints(
+  seFoot = seFoot,
+  ArchRProj = ATACSeq_project_All5, 
+  normMethod = "Divide",
+  plotName = "Footprints-Divide-Bias",
+  addDOC = FALSE,
+  smoothWindow = 5
+)
+
+# Strategy3: Footprinting Without Normalization for Tn5 Bias
+# TF_footprintg_S3 <-plotFootprints(
+#   seFoot = seFoot,
+#   ArchRProj = ATACSeq_project_All5, 
+#   normMethod = "None",
+#   plotName = "Footprints-No-Normalization",
+#   addDOC = FALSE,
+#   smoothWindow = 5
+# )
+
+# Feature Footprinting
+
+# Create a TSS insertion profile . It is just a specialized sub-case of footprinting. create TSS insertion profiles without normalization for Tn5 bias. The main difference from our previous analyses is that we specify flank = 2000 to extend these footprints 2000 bp on either side of each TSS.
+
+seTSS <- getFootprints(ArchRProj = ATACSeq_project_All5, 
+                       positions = GRangesList(TSS = getTSS(ATACSeq_project_All5)), 
+                       groupBy = "Clusters2", flank = 2000)
+# then plot the TSS insertion profiles for each cell group using plotFootprints().
+
+FeatureFootprint_TSSInsertion <- plotFootprints(seFoot = seTSS, ArchRProj = ATACSeq_project_All5, 
+                                                normMethod = "None", 
+                                                plotName = "FeatureFootprint_TSSInsertion_TSS-No-Normalization",
+                                                addDOC = FALSE, flank = 2000, flankNorm = 100)
+
+# Integrative Analysis with ArchR
+# 1. ONLY ATACseq data to identify Peak Co-accesibility to predict regulatory interactions
+# 2. analyses that integrate scRNA-seq data such as prediction of enhancer activity through peak-to-gene linkage analysis. 
+
+# Creating Low-Overlapping Aggregates of Cells
+
+# Integrative Analysis #1. ONLY ATACseq data to identify Peak Co-accesibility to predict regulatory interactions
+
+# Co-accessibility with ArchR
+ATACSeq_project_All5 <- addCoAccessibility(ArchRProj = ATACSeq_project_All5, reducedDims = "IterativeLSI_all5")
+cA <- getCoAccessibility(ArchRProj = ATACSeq_project_All5, corCutOff = 0.75, resolution = 1000, returnLoops = TRUE)
+print(cA)
+
+# Plotting browser tracks of Co-accessibility
+markerGenes  <- mg
+CoAccessibility_BrowserTrack <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2", 
+                                                 geneSymbol = markerGenes, 
+                                                 upstream = 5000,
+                                                  downstream = 5000,
+                                                  loops = getCoAccessibility(ATACSeq_project_All5))
+plotPDF(plotList = CoAccessibility_BrowserTrack, 
+        name = "Marker-Genes-with-CoAccessibility.pdf", 
+        ArchRProj = ATACSeq_project_All5, 
+        addDOC = FALSE, width = 8, height = 8)
+
+
+# Peak2GeneLinkage with ArchR
+ATACSeq_project_All5 <- addPeak2GeneLinks(ArchRProj = ATACSeq_project_All5, 
+                                          corCutOff = 0.75,
+                                          predictionCutoff = 0.4, # A numeric describing the cutoff for RNA integration to use when picking cells for groupings.
+                                          reducedDims = "IterativeLSI_all5")
+# retrieve these peak-to-gene links in a similar fashion to how we retrieved co-accessibility interactions by using the getPeak2GeneLinks() function. 
+Peak2GeneLinkage <- getPeak2GeneLinks(ArchRProj = ATACSeq_project_All5,
+                                      corCutOff = 0.75,
+                                      resolution = 1000,
+                                      returnLoops = TRUE)
+print(Peak2GeneLinkage)
+
+# Plotting browser tracks with peak-to-gene links
+Peak2GeneLinkage_BrowserTrack <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2", 
+                                                 geneSymbol = markerGenes, 
+                                                 upstream = 5000,
+                                                 downstream = 5000,
+                                                 loops = getPeak2GeneLinks(ATACSeq_project_All5))
+plotPDF(plotList = Peak2GeneLinkage_BrowserTrack, 
+        name = "Marker-Genes-with-Peak2GeneLinkage_BrowserTrack.pdf", 
+        ArchRProj = ATACSeq_project_All5, 
+        addDOC = FALSE, width = 8, height = 8)
+
+# Heatmap of peak2Gene Links
+Heatmap_peak2Gene <- plotPeak2GeneHeatmap(ArchRProj = ATACSeq_project_All5, groupBy = "Clusters2")
+
 
 
 
