@@ -32,28 +32,32 @@ paste0(here())
 # set seed
 set.seed(1)
 
-ATACSeq_project_All5 <- loadArchRProject(path = "/media/horneflablinux/HornefLab_Data3/scATACseq/All5/",
-                                         force = FALSE, 
-                                         showLogo = TRUE)
-# Aesthetics
+# Set Data Paths
+PreProcessed_Data_Path = file.path("/media", "horneflablinux", "HornefLab_Data3", "scATACseq", "All5/")
+scRNAseq_Johannes_Reference_Path = file.path("/media", "horneflablinux", "HornefLab_Data3",   
+                                             "scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds")
+
+# Load the PreProcessed ATACseq Project
+ATACSeq_project_All5 <- loadArchRProject(path = PreProcessed_Data_Path, force = TRUE, showLogo = TRUE)
+
+# Set the Aesthetics
 my_gg_theme <- theme(axis.title = element_text(size = 15),
                      axis.text = element_text(size = 15),
-                     legend.text = element_text(size = 10)
-)
+                     legend.text = element_text(size = 10))
 print(getOutputDirectory(ATACSeq_project_All5))
 
-# Function to save generic plots
+# Function to save generic plots in jpeg format in jpeg folder.
 saveplot <- function(plot, plotname) {
-  # Function to save the plots
   extension <- ".jpeg"
+  filename <- paste(plotname, extension, sep = "")
   ggsave(
-    filename = file.path(getOutputDirectory(ATACSeq_project_All5), plotname, extension, sep = ""),
-    plot = plot,
-    dpi = 300,
-    width = 8,
-    height = 8,
-    units = "in"
-  )
+          filename = file.path(getOutputDirectory(ATACSeq_project_All5), "jpeg", filename),
+          plot = plot,
+          dpi = 300,
+          width = 8,
+          height = 8,
+          units = "in"
+          )
   # dev.off()
   while (!is.null(dev.list())) {
     dev.off()
@@ -108,7 +112,7 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
   )
 
 ## Create UMAP Embedding for all samples together
-(p1_UMAP <- plotEmbedding(
+(SampleWise_UMAP <- plotEmbedding(
   ArchRProj = ATACSeq_project_All5,
   colorBy = "cellColData",
   name = "Sample",
@@ -123,11 +127,11 @@ CorCutOffValues <- ATACSeq_project_All5@reducedDims@listData[["IterativeLSI_all5
 print(head(CorCutOffValues, 10))
 ###############################################
 
-plotPDF(p1_UMAP, 
+plotPDF(SampleWise_UMAP, 
         name = "UMAP-Samplewise_All5.pdf", 
         ArchRProj = ATACSeq_project_All5,
         width = 10, height = 10, addDOC = FALSE)
-##saveplot(plot = p1_UMAP, plotname = "UMAP-Samplewise_All5")
+saveplot(plot = SampleWise_UMAP, plotname = "UMAP-Samplewise_All5")
 
 ## Create SplitView UMAP
 create_splitUMAP <- function(ATACSeq_project_All5, sampleObject) {# Create a Split view UMAP so that the UMAP for each sample can be visualized separately.
@@ -148,11 +152,11 @@ create_splitUMAP <- function(ATACSeq_project_All5, sampleObject) {# Create a Spl
 # Get the the Samples from the ArchR project
 samplelist <- ATACSeq_project_All5@cellColData$Sample
 # Call the function to create UMAP for each sample
-(d1_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[1]) + my_gg_theme)
-(d5_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[5]) + my_gg_theme)
-(d10_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[4]) + my_gg_theme)
-(d25_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[3]) + my_gg_theme)
-(d4pi_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[2]) + my_gg_theme)
+d1_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[1]) + my_gg_theme
+d5_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[5]) + my_gg_theme
+d10_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[4]) + my_gg_theme
+d25_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[3]) + my_gg_theme
+d4pi_UMAP <- create_splitUMAP(ATACSeq_project_All5, samplelist@values[2]) + my_gg_theme
 
 plotPDF(d1_UMAP, d5_UMAP, d10_UMAP, d25_UMAP, d4pi_UMAP,
         name = "SplitviewUMAP_SampleWise_All5.pdf",
@@ -160,11 +164,11 @@ plotPDF(d1_UMAP, d5_UMAP, d10_UMAP, d25_UMAP, d4pi_UMAP,
         width = 10,
         height = 10, addDOC = FALSE
 )
-#saveplot(plot = d1_UMAP, plotname = "d1_UMAP")
-#saveplot(plot = d5_UMAP, plotname = "d5_UMAP")
-#saveplot(plot = d10_UMAP, plotname = "d10_UMAP")
-#saveplot(plot = d25_UMAP, plotname = "d25_UMAP")
-#saveplot(plot = d4pi_UMAP, plotname = "d4pi_UMAP")
+saveplot(plot = d1_UMAP, plotname = "d1_UMAP")
+saveplot(plot = d5_UMAP, plotname = "d5_UMAP")
+saveplot(plot = d10_UMAP, plotname = "d10_UMAP")
+saveplot(plot = d25_UMAP, plotname = "d25_UMAP")
+saveplot(plot = d4pi_UMAP, plotname = "d4pi_UMAP")
 
 #' Adding Clusters
 ATACSeq_project_All5 <- ATACSeq_project_All5 %>% 
@@ -192,18 +196,16 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     saveModel = TRUE
   )
 
-(p2_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
+ClusterWise_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, 
                           colorBy = "cellColData", 
                           name = "Clusters_all5", 
                           embedding = "ClustersUMAP_all5", 
                           plotAs = "points",
                           size = 0.05,
-                          keepAxis = TRUE) + my_gg_theme)
-plotPDF(p2_UMAP, 
-        name = "ClustersUMAP_All5.pdf", 
-        ArchRProj = ATACSeq_project_All5,  
+                          keepAxis = TRUE) + my_gg_theme
+plotPDF(ClusterWise_UMAP, name = "ClustersUMAP_All5.pdf", ArchRProj = ATACSeq_project_All5,  
         width = 10, height = 10, addDOC = FALSE)
-#saveplot(plot = p2_UMAP, plotname = "ClustersUMAP_All5")
+saveplot(plot = ClusterWise_UMAP, plotname = "ClustersUMAP_All5")
 
 # # Accessing the clusters
 head(ATACSeq_project_All5$Clusters_all5)
@@ -218,10 +220,8 @@ print(cM)
 
 # plotting the Confusion Matrix
 cM <- cM / Matrix::rowSums(cM)
-(p <- pheatmap::pheatmap(
-  mat = as.matrix(cM), color = paletteContinuous("whiteBlue"),
-  border_color = "black"
-) + my_gg_theme)
+cM_heatmap <- pheatmap::pheatmap(mat = as.matrix(cM), color = paletteContinuous("whiteBlue"), 
+                                 border_color = "black") + my_gg_theme
 
 ## –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
 #'          SECTION 7: Annotating Cell types with a Reference Dataset       ##
@@ -229,7 +229,7 @@ cM <- cM / Matrix::rowSums(cM)
 
 ##           7.1 Unconstrained Integration       ##
 # Read-in the reference
-scRNA_AnnotationData_Johannes <- readRDS(file.path("/media/horneflablinux/HornefLab_Data3/scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds"))
+scRNA_AnnotationData_Johannes <- readRDS(scRNAseq_Johannes_Reference_Path)
 
 # add gene integration matrix
 ATACSeq_project_All5 <- ATACSeq_project_All5 %>% 
@@ -239,14 +239,15 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     matrixName = "GeneIntegrationMatrix",
     reducedDims = "IterativeLSI_all5",
     seRNA = scRNA_AnnotationData_Johannes,
-    addToArrow = FALSE,
+    addToArrow = TRUE,
     groupRNA = "int_0.3_broad_tuft",
     nameCell = "predictedCell_Un",
     nameGroup = "predictedGroup_Un",
     nameScore = "predictedScore_Un",
     dimsToUse = 1:30,
     corCutOff = 0.75,
-    plotUMAP = TRUE
+    plotUMAP = TRUE,
+    force = TRUE
   )
 
 # Plot UMAP with predicted cell types
@@ -264,7 +265,7 @@ plotPDF(annotated_UMAP_scRNAseqRef,
         width = 10, height = 10, 
         ArchRProj = ATACSeq_project_All5, 
         addDOC = FALSE)
-#saveplot(plot = annotated_UMAP_scRNAseqRef, plotname = "annotated_UMAP_scRNAseqRef")
+saveplot(plot = annotated_UMAP_scRNAseqRef, plotname = "Annotated_UMAP_scRNAseqRef")
 
 #' Create Split Annotated UMAP for each cellType
 # SampleWise
@@ -284,11 +285,11 @@ create_SampleWise_splitAnnotatedUMAP <- function(ATACSeq_project_All5, CellType)
 }
 
 # Call the function to create UMAP for each Major CellType
-(Enterocyte_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme + ggtitle("Enterocyte_UMAP"))
-(GP_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme + ggtitle("Goblet+Paneth_UMAP"))
-(EEC_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme + ggtitle("EEC_UMAP"))
-(Stem_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Stem") + my_gg_theme + ggtitle("Stem_UMAP"))
-(Tuft_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Tuft") + my_gg_theme + ggtitle("Tuft_UMAP"))
+Enterocyte_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Enterocyte") + my_gg_theme + ggtitle("Enterocyte_UMAP")
+GP_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Goblet+Paneth") + my_gg_theme + ggtitle("Goblet+Paneth_UMAP")
+EEC_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "EEC") + my_gg_theme + ggtitle("EEC_UMAP")
+Stem_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Stem") + my_gg_theme + ggtitle("Stem_UMAP")
+Tuft_UMAP <- create_SampleWise_splitAnnotatedUMAP(ATACSeq_project_All5, "Tuft") + my_gg_theme + ggtitle("Tuft_UMAP")
 
 plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
         name = "SampleWise_Splitview-CellTypeAnnotatedUMAP.pdf",
@@ -297,11 +298,11 @@ plotPDF(Enterocyte_UMAP, GP_UMAP, EEC_UMAP, Stem_UMAP, Tuft_UMAP,
         height = 10,
         addDOC = FALSE
 )
-#saveplot(plot = Enterocyte_UMAP, plotname = "Enterocyte_UMAP")
-#saveplot(plot = GP_UMAP, plotname = "GP_UMAP")
-#saveplot(plot = EEC_UMAP, plotname = "EEC_UMAP")
-#saveplot(plot = Stem_UMAP, plotname = "Stem_UMAP")
-#saveplot(plot = Tuft_UMAP, plotname = "Tuft_UMAP")
+saveplot(plot = Enterocyte_UMAP, plotname = "Enterocyte_UMAP")
+saveplot(plot = GP_UMAP, plotname = "GP_UMAP")
+saveplot(plot = EEC_UMAP, plotname = "EEC_UMAP")
+saveplot(plot = Stem_UMAP, plotname = "Stem_UMAP")
+saveplot(plot = Tuft_UMAP, plotname = "Tuft_UMAP")
 
 ## Constrained Integration
 
@@ -320,23 +321,23 @@ unique(unique(ATACSeq_project_All5$predictedGroup_Un))
 # addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
 
 # The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
-ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
-  addGeneIntegrationMatrix(
-    # ArchRProj = ATACSeq_project_All5,
-    useMatrix = "GeneScoreMatrix",
-    matrixName = "GeneIntegrationMatrix",
-    reducedDims = "IterativeLSI_all5",
-    seRNA = scRNA_AnnotationData_Johannes,
-    addToArrow = TRUE,
-    groupRNA = "int_0.3_broad_tuft",
-    nameCell = "predictedCell_Un",
-    nameGroup = "predictedGroup_Un",
-    nameScore = "predictedScore_Un",
-    dimsToUse = 1:30,
-    corCutOff = 0.75,
-    plotUMAP = TRUE,
-    force = TRUE
-  )
+# ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
+#   addGeneIntegrationMatrix(
+#     # ArchRProj = ATACSeq_project_All5,
+#     useMatrix = "GeneScoreMatrix",
+#     matrixName = "GeneIntegrationMatrix",
+#     reducedDims = "IterativeLSI_all5",
+#     seRNA = scRNA_AnnotationData_Johannes,
+#     addToArrow = TRUE,
+#     groupRNA = "int_0.3_broad_tuft",
+#     nameCell = "predictedCell_Un",
+#     nameGroup = "predictedGroup_Un",
+#     nameScore = "predictedScore_Un",
+#     dimsToUse = 1:30,
+#     corCutOff = 0.75,
+#     plotUMAP = TRUE,
+#     force = TRUE
+#   )
 
 ## Labeling scATAC-seq clusters with scRNA-seq information
 cM <- confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un)
@@ -367,6 +368,7 @@ Renamed_UMAP <- plotEmbedding(ATACSeq_project_All5,
                               name = "Clusters2")
 plotPDF(Renamed_UMAP, name = "Renamed_UMAP-Clusters.pdf", ArchRProj = ATACSeq_project_All5, 
         addDOC = FALSE, width = 8, height = 8)
+saveplot(plot = Renamed_UMAP, plotname = "Renamed_UMAP")
 ##############################################################################################
 #'                     SECTION7 : Gene Scores and Marker Genes
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -416,16 +418,15 @@ markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", 
 # markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 # 
 # ### Create Heatmap for Marker Genes
-(heatmapGS <- plotMarkerHeatmap(
+heatmapGS <- plotMarkerHeatmap(
   seMarker = markersGS,
-  cutOff = "FDR <= 0.05 & Log2FC >= 0.0",
+  cutOff = "FDR <= 0.05 & Log2FC >= 1.0",
   limits = c(-3, 3),
   returnMatrix = FALSE,
   plotLog2FC = TRUE,
   labelMarkers = markerGenesList,
   transpose = TRUE,
-  labelRows = TRUE, clusterCols = TRUE, nPrint = 10
-))
+  labelRows = TRUE, clusterCols = TRUE, nPrint = 10)
 
 plotPDF(heatmapGS,
         name = "GeneScores-Marker-Heatmap",
@@ -435,12 +436,12 @@ plotPDF(heatmapGS,
 mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 # 
 # #            Visualizing Marker Genes 
-(markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
+markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                              colorBy = "GeneScoreMatrix",
                                              name = mg,
                                              embedding = "UMAP_all5",
                                              quantCut = c(0.01, 0.95),
-                                             imputeWeights = NULL))
+                                             imputeWeights = NULL)
 
 markerGenes_UMAP_Plot <- lapply(markerGeneEmbedding_Object, function(x){
   x + guides(colour = guide_colorbar(), size = guide_legend(),
@@ -454,7 +455,7 @@ markerGenes_UMAP_Plot <- lapply(markerGeneEmbedding_Object, function(x){
     axis.ticks.y = element_blank()
   )
 })
-do.call(cowplot::plot_grid, c(list(ncol = 2), markerGenes_UMAP_Plot))
+# do.call(cowplot::plot_grid, c(list(ncol = 2), markerGenes_UMAP_Plot))
 
 plotPDF(plotList = markerGenes_UMAP_Plot,
         name = "UMAP-Marker-Genes-Without-Imputation.pdf",
@@ -468,71 +469,63 @@ plotPDF(plotList = markerGenes_UMAP_Plot,
 ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5,
                                          reducedDims = "Harmony_all5")
 
-(ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
+ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                                     colorBy = "GeneScoreMatrix",
                                                     name = mg,
                                                     embedding = "UMAP_all5",
                                                     quantCut = c(0.01, 0.95),
                                                     imputeWeights = getImputeWeights(ATACSeq_project_All5)
-))
+)
 
 ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
-  x +
-    # guides(colour = guide_colorbar(), size = guide_legend(), shape = guide_legend(), fill = FALSE) +
+  x + guides(colour = guide_colorbar(), fill = FALSE) +
     theme_ArchR(baseSize = 6.5)+ 
-  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-  theme(
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank()
-  )
-})
-do.call(cowplot::plot_grid, c(list(ncol = 3),ImputedmarkerGenes_UMAP_Plot))
-# 
-library(ggpubr)
-# 
-listplot_withImputation <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
-                                     ncol = 2, nrow = 3,
-                                     common.legend = FALSE,
-                                     align = "h")
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    )
+  })
+# do.call(cowplot::plot_grid, c(list(ncol = 3),ImputedmarkerGenes_UMAP_Plot))
 
-plotPDF(plotList = markerGenes_UMAP_Plot,
+ImputedmarkerGenes_UMAP_listplot_withImputation <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
+                                     ncol = 2, nrow = 3, common.legend = FALSE, align = "h")
+
+plotPDF(plotList = ImputedmarkerGenes_UMAP_listplot_withImputation,
         name = "Marker-Genes-UMAP-With-Imputation.pdf",
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
 
 ## All genes UMAP with Imputed objects.
 
-# AllGenesList <- as.character(cluster_df$name)
-# ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
-# 
-# ImputedmarkerGeneEmbedding_Object <- plotEmbedding(
-#   ArchRProj = ATACSeq_project_All5,
-#  colorBy = "GeneScoreMatrix",
-#  name = AllGenesList, #mg, #
-#  embedding = "UMAP_all5",
-#  quantCut = c(0.01, 0.95),
-#  imputeWeights = getImputeWeights(ATACSeq_project_All5))
-# 
-# ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
-#  x + theme_ArchR(baseSize = 6, legendPosition = "right") })
-# #
-# listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
-#                       ncol = 2, nrow = 3,
-#                       common.legend = FALSE,
-#                       align = "hv")
-# 
-# plotPDF(plotList = listplot,
-#         name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
-#         ArchRProj = ATACSeq_project_All5,
-#         addDOC = FALSE, width = 10, height = 10)
+AllGenesList <- as.character(cluster_df$name)
+ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
+
+ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
+                                                   colorBy = "GeneScoreMatrix", name = AllGenesList, 
+                                                   embedding = "UMAP_all5", 
+                                                   quantCut = c(0.01, 0.95), 
+                                                   imputeWeights = getImputeWeights(ATACSeq_project_All5))
+
+ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
+ x + theme_ArchR(baseSize = 6, legendPosition = "right") })
+ImputedmarkerGenes_UMAP_Plot_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
+                      ncol = 3, nrow = 3,
+                      common.legend = FALSE,
+                      align = "hv")
+
+plotPDF(plotList = ImputedmarkerGenes_UMAP_Plot_listplot,
+        name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
+        ArchRProj = ATACSeq_project_All5,
+        addDOC = FALSE, width = 10, height = 10)
 
 # Track Plotting
-(Trackplotter = plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
+Trackplotter = plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
                                  groupBy = "Clusters_all5",
                                  geneSymbol = mg,
-                                 upstream = 5000, downstream = 5000))
+                                 upstream = 5000, downstream = 5000)
 plotPDF(plotList = Trackplotter,
         name = "TracksPlot-Marker-Genes.pdf",  
         ArchRProj = ATACSeq_project_All5,
@@ -577,7 +570,6 @@ saveArchRProject(
   logFile = createLogFile("saveArchRProject_All5_postpeakcalling")
 )
 
-# library(magick)
 #  Identifying Marker Peaks with ArchR
 # Marker features are unique to a specific cell grouping. These can be very useful in understanding cluster- or cell type-specific biology.
 # we are interested to know which peaks are unique to an individual cluster or a small group of clusters. We can do this in an unsupervised fashion in ArchR using the addMarkerFeatures() function in combination with useMatrix = "PeakMatrix". 
@@ -599,28 +591,29 @@ heatmap_MarkerPeaks <- plotMarkerHeatmap(seMarker = markersPeaks,
                               nLabel = 15,
                               nPrint = 15,
                               transpose = TRUE)
-library(ComplexHeatmap)
+
 ComplexHeatmap::draw(heatmap_MarkerPeaks, heatmap_legend_side = "bot", annotation_legend_side = "bot")
 plotPDF(heatmap_MarkerPeaks, name = "MarkerPeaks-Heatmap", width = 8, height = 8,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
-# heatmap_MarkerPeaks
+saveplot(plot = heatmap_MarkerPeaks, plotname = "heatmap_MarkerPeaks")
 
 
 ## Volcano Plots for Marker Peaks
-MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "Clusters2", 
+MarkerPeak_VolcanoPlot <- markerPlot(seMarker = markersPeaks, name = "C15", 
                                      cutOff = "FDR <= 0.1 & Log2FC >= 1", plotAs = "Volcano")
 plotPDF(MarkerPeak_VolcanoPlot, name = "MarkerPeaks-VolcanoPlot", width = 8, height = 8, 
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+saveplot(plot = MarkerPeak_VolcanoPlot, plotname = "MarkerPeak_VolcanoPlot")
 
 ## Marker Peaks in Browser Tracks
 # visualise peak regions overlayed on our browser tracks by passing the relevant peak regions to the features parameterin the plotBrowserTrack() function. This will add an additional BED-style track of marker peak regions to the bottom of our ArchR track plot.
 
 MarkerPeak_TrackPlot <- plotBrowserTrack(ArchRProj = ATACSeq_project_All5, 
-                                         groupBy = "C5", 
+                                         groupBy = "Clusters_all5", 
                                          geneSymbol = mg,
                                          features =  getMarkers(markersPeaks, 
                                                                 cutOff = "FDR <= 0.1 & Log2FC >= 1", 
-                                                                returnGR = TRUE)["Clusters2"],
+                                                                returnGR = TRUE)["Clusters_all5"],
                                          upstream = 5000, 
                                          downstream = 5000)
 
@@ -638,7 +631,7 @@ markerTest <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "P
                                 useGroups = "Matthias/Stem", bgdGroups = "Aline/Enterocyte")
 markerTest_volcanoPlot <- markerPlot(seMarker = markerTest, name = "Matthias/Stem", 
                                      cutOff = "FDR <= 0.1 & abs(Log2FC) >= 1", plotAs = "Volcano")
-plotPDF(markerTest_volcanoPlot, name = "Matthias/Stem-vs-Aline/Enterocyte-Markers-VolcanoPlot", 
+plotPDF(markerTest_volcanoPlot, name = "Matthias_Stem-vs-Aline_Enterocyte-Markers-VolcanoPlot", 
         width = 8, height = 8, ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
 # Motif and Feature Enrichment
@@ -751,7 +744,7 @@ print(markerMotifs)
 
 ###' plot the distribution of chromVAR deviation scores for each cluster.
 ChromVarDeviations_plot <- plotGroups(ArchRProj = ATACSeq_project_All5, 
-                                      groupBy = "C5", colorBy = "MotifMatrix", 
+                                      groupBy = "Clusters2", colorBy = "MotifMatrix", 
                                       name = markerMotifs, 
                                       imputeWeights = getImputeWeights(ATACSeq_project_All5))
 
@@ -776,7 +769,8 @@ ChromVarDeviations_Allplots <- lapply(seq_along(p), function(x){
       ) + ylab("")
   }
 })
-do.call(cowplot::plot_grid, c(list(nrow = 1, rel_widths = c(2, rep(1, length(ChromVarDeviations_Allplots) - 1))),ChromVarDeviations_Allplots))
+# do.call(cowplot::plot_grid, 
+#         c(list(nrow = 1, rel_widths = c(2, rep(1, length(ChromVarDeviations_Allplots) - 1))),  ChromVarDeviations_Allplots))
 
 plotPDF(ChromVarDeviations_plot, 
         name = "ChromVar-Groups-Deviations-w-Imputation", width = 8, height = 8, 
@@ -785,11 +779,32 @@ plotPDF(ChromVarDeviations_plot,
 # Instead of looking at the distributions of these z-scores, we can overlay the z-scores on our UMAP embedding as we’ve done previously for gene scores.
 
 CV_on_GeneScore <- plotEmbedding(ArchRProj = ATACSeq_project_All5, colorBy = "MotifMatrix", 
-                                 name = sort(markerMotifs), embedding = "UMAP",
+                                 name = sort(markerMotifs), embedding = "UMAP_all5",
                                  imputeWeights = getImputeWeights(ATACSeq_project_All5))
 ## Motif UMAPs
 
 Motif_UMAPs_GeneScore <- lapply(CV_on_GeneScore, function(x){
+  x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+      axis.text.x=element_blank(),
+      axis.ticks.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks.y=element_blank()
+    )
+})
+do.call(cowplot::plot_grid, c(list(ncol = 3), Motif_UMAPs_GeneScore))
+
+# To see how these TF deviation z-scores compare to the inferred gene expression via gene scores of the corresponding TF genes, we can overlay the gene scores for each of these TFs on the UMAP embedding.
+markerRNA_TFDeviation <- getFeatures(ATACSeq_project_All5, select = paste(motifs, collapse="|"), 
+                         useMatrix = "GeneScoreMatrix")
+markerRNA_TFDeviation <- markerRNA[markerRNA %ni% c("Spdef","Ephb3", "Ada", "Lct", "Sis", "Lyz1")]
+markerRNA_TFDeviation_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, colorBy = "GeneScoreMatrix",  
+                                name = sort(markerRNA), embedding = "UMAP_all5", 
+                                imputeWeights = getImputeWeights(ATACSeq_project_All5))
+
+markerRNA_TFDeviation_UMAP_All <- lapply(markerRNA_TFDeviation_UMAP, function(x){
   x + guides(color = FALSE, fill = FALSE) + 
     theme_ArchR(baseSize = 6.5) +
     theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
@@ -800,7 +815,16 @@ Motif_UMAPs_GeneScore <- lapply(CV_on_GeneScore, function(x){
       axis.ticks.y=element_blank()
     )
 })
-do.call(cowplot::plot_grid, c(list(ncol = 3), Motif_UMAPs_GeneScore))
+do.call(cowplot::plot_grid, c(list(ncol = 3),markerRNA_TFDeviation_UMAP_All))
+markerRNA_TFDeviation_UMAP_All_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot, 
+                                                     ncol = 3, nrow = 3, common.legend = TRUE, 
+                                                     align = "hv")
 
-# To see how these TF deviation z-scores compare to the inferred gene expression via gene scores of the corresponding TF genes, we can overlay the gene scores for each of these TFs on the UMAP embedding.
+plotPDF(markerRNA_TFDeviation_UMAP_All_listplot, 
+        name = "ChromVar-Groups-Deviations-w-Imputation", width = 8, height = 8, 
+        ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
+
+
+
+
 
