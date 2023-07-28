@@ -292,7 +292,7 @@ markerRNA_TFDeviation_UMAP_All <- lapply(markerRNA_TFDeviation_UMAP, function(x)
     )
 })
 
-markerRNA_TFDeviation_UMAP_All_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot, 
+markerRNA_TFDeviation_UMAP_All_listplot <- ggarrange(plotlist = markerRNA_TFDeviation_UMAP_All, 
                                                      ncol = 2, nrow = 2, common.legend = TRUE, 
                                                      align = "hv")
 
@@ -479,3 +479,4 @@ PositiveTFRegulator_basedonGIM <- ggplot(data.frame(corGIM_MM), aes(cor, maxDelt
     expand = c(0,0), 
     limits = c(0, max(corGIM_MM$maxDelta)*1.05)
   )
+
