@@ -738,7 +738,7 @@ ChromVarDeviations_plot <- plotGroups(ArchRProj = ATACSeq_project_All5,
                                       imputeWeights = getImputeWeights(ATACSeq_project_All5))
 
 # use cowplot to plot the distributions of all of these motifs in a single plot.
-ChromVarDeviations_Allplots <- lapply(seq_along(p), function(x){
+ChromVarDeviations_Allplots <- lapply(seq_along(ChromVarDeviations_plot), function(x){
   if(x != 1){
     ChromVarDeviations_plot[[x]] + guides(color = FALSE, fill = FALSE) + 
       theme_ArchR(baseSize = 6) +
@@ -785,9 +785,9 @@ Motif_UMAPs_GeneScore <- lapply(CV_on_GeneScore, function(x){
 # To see how these TF deviation z-scores compare to the inferred gene expression via gene scores of the corresponding TF genes, we can overlay the gene scores for each of these TFs on the UMAP embedding.
 markerRNA_TFDeviation <- getFeatures(ATACSeq_project_All5, select = paste(motifs, collapse="|"), 
                          useMatrix = "GeneScoreMatrix")
-markerRNA_TFDeviation <- markerRNA[markerRNA %ni% c("Spdef","Ephb3", "Ada", "Lct", "Sis", "Lyz1")]
+#markerRNA_TFDeviation <- markerRNA_TFDeviation#[markerRNA_TFDeviation %ni% c("Spdef","Ephb3", "Ada", "Lct", "Sis", "Lyz1")]
 markerRNA_TFDeviation_UMAP <- plotEmbedding(ArchRProj = ATACSeq_project_All5, colorBy = "GeneScoreMatrix",  
-                                name = sort(markerRNA), embedding = "UMAP_all5", 
+                                name = sort(markerRNA_TFDeviation), embedding = "UMAP_all5", 
                                 imputeWeights = getImputeWeights(ATACSeq_project_All5))
 
 markerRNA_TFDeviation_UMAP_All <- lapply(markerRNA_TFDeviation_UMAP, function(x){
@@ -803,7 +803,7 @@ markerRNA_TFDeviation_UMAP_All <- lapply(markerRNA_TFDeviation_UMAP, function(x)
 })
 
 markerRNA_TFDeviation_UMAP_All_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot, 
-                                                     ncol = 3, nrow = 3, common.legend = TRUE, 
+                                                     ncol = 2, nrow = 2, common.legend = TRUE, 
                                                      align = "hv")
 
 plotPDF(markerRNA_TFDeviation_UMAP_All_listplot, 
