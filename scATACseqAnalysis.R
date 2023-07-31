@@ -434,10 +434,11 @@ mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 AllFeatures <- getFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "GeneScoreMatrix", 
                            select = NULL, ignoreCase = TRUE)
 # Doesnt make sense to do it for all features..but maybe just for Haber Intestine Genes. 
+Haber_marker_genes <- Haber_marker_genes[Haber_marker_genes %in% AllFeatures]# Just Keep the genes in haber list which are present in All features list.
 # #            Visualizing Marker Genes 
 markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                              colorBy = "GeneScoreMatrix",
-                                             name = Haber_marker_genes[Haber_marker_genes %in% AllFeatures],# Just Keep the genes in haber list which are present in All features list.
+                                             name = Haber_marker_genes,# Just Keep the genes in haber list which are present in All features list.
                                              embedding = "UMAP_all5",
                                              quantCut = c(0.01, 0.95),
                                              imputeWeights = NULL)
