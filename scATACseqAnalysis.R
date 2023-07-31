@@ -15,7 +15,7 @@
 #' SECTION1: Initialization
 
 Package_List <- c("ArchR", "ComplexHeatmap", "writexl", "here", "patchwork", "tidyverse", "magick",
-                  "pheatmap","Signac", "Seurat", "stringr", "BSgenome.Mmusculus.UCSC.mm10", 
+                  "pheatmap","Signac", "Seurat", "stringr", "BSgenome.Mmusculus.UCSC.mm10", "readr",
                   "ggpubr", "chromVARmotifs")
 not_installed <- Package_List[!(Package_List %in% installed.packages()[, "Package"])] 
 # Extract not installed packages
@@ -34,7 +34,7 @@ set.seed(1)
 
 # Set Data Paths
 PreProcessed_Data_Path = file.path("/media", "horneflablinux", "HornefLab_Data3", "scATACseq", "All5/")
-scRNAseq_Johannes_Reference_Path = file.path("/media", "horneflablinux", "HornefLab_Data3",   
+scRNAseq_Johannes_Reference_Path = file.path("/media", "horneflablinux", "HornefLab_Data3", "scATACseq",  
                                              "scRNA_AnnotationData_Johannes", "scrna_with_day25.Rds")
 
 # Load the PreProcessed ATACseq Project
@@ -239,7 +239,8 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     matrixName = "GeneIntegrationMatrix",
     reducedDims = "IterativeLSI_all5",
     seRNA = scRNA_AnnotationData_Johannes,
-    addToArrow = TRUE,
+    addToArrow = FALSE,# with the results of our scATAC-seq and scRNA-seq integration, we can re-run the integration with 
+    # addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
     groupRNA = "int_0.3_broad_tuft",
     nameCell = "predictedCell_Un",
     nameGroup = "predictedGroup_Un",
@@ -310,34 +311,18 @@ saveplot(plot = Tuft_UMAP, plotname = "Tuft_UMAP")
 
 # we would ideally constrain the integration to associate similar cell types togther. First, we will identify which cell types from the scRNA-seq data are most abundant in each of our scATAC-seq clusters. 
 cM <- as.matrix(confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un))
+print(cM)
+
+# plotting the Confusion Matrix
+cM <- cM / Matrix::rowSums(cM)
+cM_heatmap <- pheatmap::pheatmap(mat = as.matrix(cM), color = paletteContinuous("whiteBlue"), 
+                                 border_color = "black") + my_gg_theme
+
 preClust <- colnames(cM)[apply(cM, 1 , which.max)]
-cbind(preClust, rownames(cM)) #Assignments. This list shows which scRNA-seq cell type is most abundant in each of the 12 scATAC-seq clusters.
+preClust_table <- as.data.frame(cbind(preClust, rownames(cM))) #Assignments. This list shows which scRNA-seq cell type is most abundant in each of the 12 scATAC-seq clusters.
 
 # lets look at the cell type labels from our scRNA-seq data that were used in our unconstrained integration:
-unique(unique(ATACSeq_project_All5$predictedGroup_Un))
-
-
-# with the results of our scATAC-seq and scRNA-seq integration, we can re-run the integration with 
-# addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
-
-# The other key parameters for this function provide column names in cellColData where certain information will be stored: nameCell will store the cell ID from the matched scRNA-seq cell, nameGroup will store the group ID from the scRNA-seq cell, and nameScore will store the cross-platform integration score.
-# ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
-#   addGeneIntegrationMatrix(
-#     # ArchRProj = ATACSeq_project_All5,
-#     useMatrix = "GeneScoreMatrix",
-#     matrixName = "GeneIntegrationMatrix",
-#     reducedDims = "IterativeLSI_all5",
-#     seRNA = scRNA_AnnotationData_Johannes,
-#     addToArrow = TRUE,
-#     groupRNA = "int_0.3_broad_tuft",
-#     nameCell = "predictedCell_Un",
-#     nameGroup = "predictedGroup_Un",
-#     nameScore = "predictedScore_Un",
-#     dimsToUse = 1:30,
-#     corCutOff = 0.75,
-#     plotUMAP = TRUE,
-#     force = TRUE
-#   )
+unique(ATACSeq_project_All5$predictedGroup_Un)
 
 ## Labeling scATAC-seq clusters with scRNA-seq information
 cM <- confusionMatrix(ATACSeq_project_All5$Clusters_all5, ATACSeq_project_All5$predictedGroup_Un)
@@ -348,13 +333,32 @@ labelNew <- colnames(cM)[apply(cM, 1, which.max)]
 print(labelNew)
 
 # Next we need to reclassify these new cluster labels to make a simpler categorization system. For each scRNA-seq cluster
+# remapClust <- c(
+#   "Enterocyte" = "Aline/Enterocyte",
+#   "Tuft" = "Kaiyi/Tuft",
+#   "Stem" = "Matthias/Stem",
+#   "Goblet+Paneth" = "Fabian/Goblet+Paneth",
+#   "EEC" = "Annalena/EEC"
+# )
 remapClust <- c(
-  "Enterocyte" = "Aline/Enterocyte",
-  "Tuft" = "Kaiyi/Tuft",
-  "Stem" = "Matthias/Stem",
-  "Goblet+Paneth" = "Fabian/Goblet+Paneth",
-  "EEC" = "Annalena/EEC"
+  "C9" = "Matthias_Stem_C9",
+  "C8" = "Matthias_Stem_C8",
+  "C3" = "Aline_Enterocyte_C3",
+  "C10" = "Aline_Enterocyte_C10",
+  "C15" = "Fabian_Goblet+Paneth_C15",
+  "C14" = "Fabian_Goblet+Paneth_C14",
+  "C12" = "Annalena_EEC_C12",
+  "C6" = "Aline_Enterocyte_C6",
+  "C11" = "Matthias_Stem_11",
+  "C13" = "Aline_Enterocyte_C13",
+  "C7" = "Aline_Enterocyte_C7",
+  "C1" = "Aline_Enterocyte_C1",
+  "C4" = "Aline_Enterocyte_C4",
+  "C2" = "Aline_Enterocyte_C2",
+  "C16" = "Fabian_Goblet+Paneth_C16",
+  "C5" = "Aline_Enterocyte_C5"
 )
+
 remapClust <- remapClust[names(remapClust) %in% labelNew]
 labelNew2 <- mapLabels(labelNew, oldLabels = names(remapClust), newLabels = remapClust)
 labelNew2
@@ -369,6 +373,9 @@ Renamed_UMAP <- plotEmbedding(ATACSeq_project_All5,
 plotPDF(Renamed_UMAP, name = "Renamed_UMAP-Clusters.pdf", ArchRProj = ATACSeq_project_All5, 
         addDOC = FALSE, width = 8, height = 8)
 saveplot(plot = Renamed_UMAP, plotname = "Renamed_UMAP")
+
+# remove the 4GB scRNA refseq Object from Memory
+rm(scRNA_AnnotationData_Johannes)
 ##############################################################################################
 #'                     SECTION7 : Gene Scores and Marker Genes
 ## ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––##
@@ -380,7 +387,7 @@ markersGS <- getMarkerFeatures(ArchRProj = ATACSeq_project_All5,
                                 groupBy = "Clusters_all5",
                                 bias = c("TSSEnrichment", "log10(nFrags)"),
                                 testMethod = "wilcoxon"
-                               )
+                               )# Creates a Summarized experiment object, which will be used later for creating marker genes heatmaps.
 
 # Markers List
 markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.05 & Log2FC >= 1")
@@ -400,44 +407,38 @@ for (i in 1:length(markerList)) {
 # Write the dataframes to different sheets of an Excel file
 write_xlsx(df_list, path = "Clusters_ATACseq_AllGenes.xlsx")
 
-## Marker Genes
-
-# Human_and_mouse_cell_markers_df <- as.data.frame(read.delim("D:/scATACseq/Human_and_mouse_cell_markers-Markers.tsv"))
-# 
-# Haber_marker_genes <- Human_and_mouse_cell_markers_df %>% 
-#   filter(Tissue.of.Origin == 'Intestine') %>% select(Mouse.Gene) %>% pull(Mouse.Gene)
+## Marker Genes from Haber Paper
+Haber_Intestine_Genes <- readr::read_tsv("/media/horneflablinux/HornefLab_Data3/scATACseq/Human_and_mouse_cell_markers-Markers.tsv", show_col_types = FALSE)%>% filter(Tissue.of.Origin == 'Intestine') %>% select(Mouse.Gene) %>% pull(Mouse.Gene)
 ##  visualize all of the marker features simultaneously
-##  
-# Provided by Johannes
-markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct") #%>% as.data.frame()
-# colnames(markerGenesList) <- c('Mouse.Gene')
-# 
-# Haber_marker_genes <- full_join(Haber_marker_genes, markerGenesList, by = join_by(Mouse.Gene)) %>% distinct()
-# Haber_marker_genes <-  c(Haber_marker_genes, markerGenesList)
-# markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
-# 
+markerGenesList <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct") # Provided by Johannes
+Haber_marker_genes <-  union(Haber_Intestine_Genes, markerGenesList)
+
 # ### Create Heatmap for Marker Genes
 heatmap_MarkerGene <- plotMarkerHeatmap(
   seMarker = markersGS,
-  cutOff = "FDR <= 0.05 & Log2FC >= 1.0",
-  limits = c(-3, 3),
+  cutOff = "FDR <= 0.01 & Log2FC >= 1.5",
+  limits = c(-4, 4),
   returnMatrix = FALSE,
   plotLog2FC = TRUE,
-  labelMarkers = markerGenesList,
+  labelMarkers = Haber_marker_genes,
   transpose = TRUE,
-  labelRows = TRUE, clusterCols = TRUE, nPrint = 10)
+  labelRows = TRUE, 
+  clusterCols = TRUE)
 
 plotPDF(heatmap_MarkerGene,
         name = "GeneScores-Marker-Heatmap",
-        width = 10, height = 10,
+        width = 18, height = 18,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
-mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
+# mg <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
+
+AllFeatures <- getFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "GeneScoreMatrix", 
+                           select = NULL, ignoreCase = TRUE)
 
 # #            Visualizing Marker Genes 
 markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                              colorBy = "GeneScoreMatrix",
-                                             name = mg,
+                                             name = AllFeatures,
                                              embedding = "UMAP_all5",
                                              quantCut = c(0.01, 0.95),
                                              imputeWeights = NULL)
@@ -455,7 +456,10 @@ markerGenes_UMAP_Plot <- lapply(markerGeneEmbedding_Object, function(x){
   )
 })
 
-plotPDF(plotList = markerGenes_UMAP_Plot,
+markerGenes_UMAP_listplot_withoutImputation <- ggarrange(plotlist = markerGenes_UMAP_Plot,
+                                                             ncol = 2, nrow = 3, common.legend = FALSE, align = "h")
+
+plotPDF(plotList = markerGenes_UMAP_listplot_withoutImputation,
         name = "UMAP-Marker-Genes-Without-Imputation.pdf",
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
@@ -466,7 +470,7 @@ ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5,
 
 ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                                     colorBy = "GeneScoreMatrix",
-                                                    name = mg,
+                                                    name = AllFeatures,
                                                     embedding = "UMAP_all5",
                                                     quantCut = c(0.01, 0.95),
                                                     imputeWeights = getImputeWeights(ATACSeq_project_All5)
@@ -491,8 +495,8 @@ plotPDF(plotList = ImputedmarkerGenes_UMAP_listplot_withImputation,
         name = "Marker-Genes-UMAP-With-Imputation.pdf",
         ArchRProj = ATACSeq_project_All5,
         addDOC = FALSE, width = 8, height = 8)
-## All genes UMAP with Imputed objects.
 
+## All genes UMAP with Imputed objects.
 AllGenesList <- as.character(cluster_df$name)
 ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
 
@@ -944,7 +948,7 @@ rowData(seZ)$maxDelta <- lapply(seq_len(ncol(seZ)), function(x){rowMaxs(assay(se
 corGSM_MM <- correlateMatrices(ArchRProj = ATACSeq_project_All5, useMatrix1 = "GeneScoreMatrix", 
                                useMatrix2 = "MotifMatrix", reducedDims = "IterativeLSI_all5")
 # perform the same analysis using the GeneIntegrationMatrix instead of the GeneScoreMatrix.
-corGSM_MM <- correlateMatrices(ArchRProj = ATACSeq_project_All5, useMatrix1 = "GeneIntegrationMatrix", 
+corGIM_MM <- correlateMatrices(ArchRProj = ATACSeq_project_All5, useMatrix1 = "GeneIntegrationMatrix", 
                                useMatrix2 = "MotifMatrix", reducedDims = "IterativeLSI_all5")
 # Step 3. Add Maximum Delta Deviation to the Correlation Data Frame
 corGSM_MM$maxDelta <- rowData(seZ)[match(corGSM_MM$MotifMatrix_name, rowData(seZ)$name), "maxDelta"]
@@ -989,6 +993,9 @@ PositiveTFRegulator_basedonGIM <- ggplot(data.frame(corGIM_MM), aes(cor, maxDelt
     expand = c(0,0), 
     limits = c(0, max(corGIM_MM$maxDelta)*1.05)
   )
+
+##############Trajectory Analysis##########################
+
 
 
 
