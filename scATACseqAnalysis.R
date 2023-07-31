@@ -239,8 +239,7 @@ ATACSeq_project_All5 <- ATACSeq_project_All5 %>%
     matrixName = "GeneIntegrationMatrix",
     reducedDims = "IterativeLSI_all5",
     seRNA = scRNA_AnnotationData_Johannes,
-    addToArrow = FALSE,# with the results of our scATAC-seq and scRNA-seq integration, we can re-run the integration with 
-    # addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
+    addToArrow = TRUE,# with the results of our scATAC-seq and scRNA-seq integration, we can re-run the integration with addToArrow = TRUE to add the linked gene expression data to each of the Arrow files. 
     groupRNA = "int_0.3_broad_tuft",
     nameCell = "predictedCell_Un",
     nameGroup = "predictedGroup_Un",
@@ -430,15 +429,15 @@ plotPDF(heatmap_MarkerGene,
         width = 18, height = 18,
         ArchRProj = ATACSeq_project_All5, addDOC = FALSE)
 
-# mg <- c("Plag2g2a", "Defa-rs1", "Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
+mg <- c("Mmp7", "Lyz1", "Spdef", "Tcf7l2", "Ephb3", "Sis", "Ada", "Lct")
 
 AllFeatures <- getFeatures(ArchRProj = ATACSeq_project_All5, useMatrix = "GeneScoreMatrix", 
                            select = NULL, ignoreCase = TRUE)
-
+# Doesnt make sense to do it for all features..but maybe just for Haber Intestine Genes. 
 # #            Visualizing Marker Genes 
 markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                              colorBy = "GeneScoreMatrix",
-                                             name = AllFeatures,
+                                             name = Haber_marker_genes[Haber_marker_genes %in% AllFeatures],# Just Keep the genes in haber list which are present in All features list.
                                              embedding = "UMAP_all5",
                                              quantCut = c(0.01, 0.95),
                                              imputeWeights = NULL)
