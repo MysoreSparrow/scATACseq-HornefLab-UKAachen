@@ -445,7 +445,7 @@ markerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
 
 markerGenes_UMAP_Plot <- lapply(markerGeneEmbedding_Object, function(x){
   x + guides(colour = guide_colorbar(), size = guide_legend(),
-             shape = guide_legend(), fill = FALSE) +
+             shape = guide_legend(), fill = "none") +
     theme_ArchR(baseSize = 6.5)+ 
   theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
   theme(
@@ -470,7 +470,7 @@ ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5,
 
 ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
                                                     colorBy = "GeneScoreMatrix",
-                                                    name = AllFeatures,
+                                                    name = Haber_marker_genes,
                                                     embedding = "UMAP_all5",
                                                     quantCut = c(0.01, 0.95),
                                                     imputeWeights = getImputeWeights(ATACSeq_project_All5)
@@ -497,31 +497,32 @@ plotPDF(plotList = ImputedmarkerGenes_UMAP_listplot_withImputation,
         addDOC = FALSE, width = 8, height = 8)
 
 ## All genes UMAP with Imputed objects.
-AllGenesList <- as.character(cluster_df$name)
-ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
-
-ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
-                                                   colorBy = "GeneScoreMatrix", name = AllGenesList, 
-                                                   embedding = "UMAP_all5", 
-                                                   quantCut = c(0.01, 0.95), 
-                                                   imputeWeights = getImputeWeights(ATACSeq_project_All5))
-
-ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
- x + theme_ArchR(baseSize = 6, legendPosition = "right") })
-ImputedmarkerGenes_UMAP_Plot_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
-                      ncol = 3, nrow = 3,
-                      common.legend = FALSE,
-                      align = "hv")
-
-plotPDF(plotList = ImputedmarkerGenes_UMAP_Plot_listplot,
-        name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
-        ArchRProj = ATACSeq_project_All5,
-        addDOC = FALSE, width = 10, height = 10)
+# # AllGenesList <- as.character(cluster_df$name)
+# ATACSeq_project_All5 <- addImputeWeights(ATACSeq_project_All5, reducedDims = "Harmony_all5")
+# 
+# ImputedmarkerGeneEmbedding_Object <- plotEmbedding(ArchRProj = ATACSeq_project_All5,
+#                                                    colorBy = "GeneScoreMatrix", 
+#                                                    name = Haber_marker_genes, 
+#                                                    embedding = "UMAP_all5", 
+#                                                    quantCut = c(0.01, 0.95), 
+#                                                    imputeWeights = getImputeWeights(ATACSeq_project_All5))
+# 
+# ImputedmarkerGenes_UMAP_Plot <- lapply(ImputedmarkerGeneEmbedding_Object, function(x){
+#  x + theme_ArchR(baseSize = 6, legendPosition = "right") })
+# ImputedmarkerGenes_UMAP_Plot_listplot <- ggarrange(plotlist = ImputedmarkerGenes_UMAP_Plot,
+#                       ncol = 3, nrow = 3,
+#                       common.legend = FALSE,
+#                       align = "hv")
+# 
+# plotPDF(plotList = ImputedmarkerGenes_UMAP_Plot_listplot,
+#         name = "ListPlot-Marker-Genes-UMAP-With-Imputation.pdf",
+#         ArchRProj = ATACSeq_project_All5,
+#         addDOC = FALSE, width = 10, height = 10)
 
 # Track Plotting
 Trackplotter = plotBrowserTrack(ArchRProj = ATACSeq_project_All5,
                                  groupBy = "Clusters_all5",
-                                 geneSymbol = mg,
+                                 geneSymbol = Haber_marker_genes,
                                  upstream = 5000, downstream = 5000)
 plotPDF(plotList = Trackplotter,
         name = "TracksPlot-Marker-Genes.pdf",  
